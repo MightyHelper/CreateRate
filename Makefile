@@ -16,4 +16,4 @@ build:
 	chmod +x build/create-rate.mjs
 	$(ESBUILD) src/export-recipes.ts --bundle --platform=node --format=esm --outfile=build/export-recipes.mjs
 	node build/export-recipes.mjs
-	$(ESBUILD) src/ui.ts --bundle --platform=browser --format=esm --outfile=build/ui.js
+	$(ESBUILD) src/ui/index.ts --bundle --platform=browser --format=esm --outfile=build/ui.js

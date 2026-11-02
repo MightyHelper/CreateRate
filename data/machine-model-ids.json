@@ -1,0 +1,19 @@
+{
+  "blast_furnace": "minecraft:blast_furnace",
+  "campfire": "minecraft:block/campfire",
+  "crafting_table": "minecraft:crafting_table",
+  "crushing_wheels": "create:crushing_wheel",
+  "deployer": "create:deployer",
+  "encased_fan": "create:encased_fan",
+  "furnace": "minecraft:furnace",
+  "item_drain": "create:item_drain",
+  "mechanical_crafter": "create:mechanical_crafter",
+  "mechanical_mixer": "create:mechanical_mixer",
+  "mechanical_press": "create:mechanical_press",
+  "mechanical_saw": "create:mechanical_saw",
+  "millstone": "create:millstone",
+  "smithing_table": "minecraft:smithing_table",
+  "smoker": "minecraft:smoker",
+  "spout": "create:spout",
+  "stonecutter": "minecraft:stonecutter"
+}

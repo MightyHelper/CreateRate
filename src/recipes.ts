@@ -39,6 +39,32 @@ export type RecipeStep = {
   outputs: RecipeOutput[];
 };
 
+export type TextureAnimation = {
+  textureWidth: number;
+  textureHeight: number;
+  frameWidth: number;
+  frameHeight: number;
+  frames: Array<{ index: number; time: number }>;
+};
+
+export type ModelPoint = [number, number, number];
+export type MachineModelFace = { texture: string; uv: [number, number, number, number]; rotation: number };
+export type MachineModelElement = {
+  from: ModelPoint;
+  to: ModelPoint;
+  rotation?: { origin: ModelPoint; axis: "x" | "y" | "z"; angle: number; rescale?: boolean };
+  faces: Record<string, MachineModelFace>;
+};
+export type MachineModelTriangle = { texture: string; vertices: Array<{ position: ModelPoint; uv: [number, number] }> };
+export type MachineModel = { elements: MachineModelElement[]; triangles: MachineModelTriangle[]; fallbackTexture?: string };
+
+export type MachineLayoutRules = {
+  blockStep: number;
+  basinMethods: string[];
+  basinModel: string;
+  heaterModels: Record<string, string>;
+};
+
 export type UnresolvedRecipe = { id: string; type: string; source?: string; reason: string };
 
 type RawRecipe = Record<string, any>;
@@ -53,6 +79,9 @@ type ExportData = {
   createVersion?: string;
   fluidUnitsPerMillibucket?: number;
   recipes: { id: string; source?: string; active?: boolean | null; recipe: RawRecipe }[];
+  itemIcons?: Record<string, string>;
+  itemAnimations?: Record<string, TextureAnimation>;
+  machineModels?: Record<string, MachineModel>;
   itemTags?: Record<string, string[]>;
   fluidTags?: Record<string, string[]>;
 };
@@ -62,6 +91,8 @@ type MachineData = Record<string, string>;
 const exported = JSON.parse(readFileSync(new URL("../data/modpack-recipes.json", import.meta.url), "utf8")) as ExportData;
 const adaptations = JSON.parse(readFileSync(new URL("../data/adaptations.json", import.meta.url), "utf8")) as AdaptationData;
 const machineByType = JSON.parse(readFileSync(new URL("../data/machines.json", import.meta.url), "utf8")) as MachineData;
+const machineModelIds = JSON.parse(readFileSync(new URL("../data/machine-model-ids.json", import.meta.url), "utf8")) as MachineData;
+const machineLayoutRules = JSON.parse(readFileSync(new URL("../data/machine-layout-rules.json", import.meta.url), "utf8")) as MachineLayoutRules;
 
 const recipesById = new Map<string, Recipe>();
 const unresolvedRecipes: UnresolvedRecipe[] = [];
@@ -109,6 +140,26 @@ export function listRecipes(): Recipe[] {
 
 export function listResourceTags(): { itemTags: Record<string, string[]>; fluidTags: Record<string, string[]> } {
   return { itemTags: exported.itemTags ?? {}, fluidTags: exported.fluidTags ?? {} };
+}
+
+export function listItemIcons(): Record<string, string> {
+  return exported.itemIcons ?? {};
+}
+
+export function listItemAnimations(): Record<string, TextureAnimation> {
+  return exported.itemAnimations ?? {};
+}
+
+export function listMachineModelIds(): MachineData {
+  return machineModelIds;
+}
+
+export function listMachineModels(): Record<string, MachineModel> {
+  return exported.machineModels ?? {};
+}
+
+export function listMachineLayoutRules(): MachineLayoutRules {
+  return machineLayoutRules;
 }
 
 export function listUnresolvedRecipes(): UnresolvedRecipe[] {

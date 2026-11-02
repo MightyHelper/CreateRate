@@ -31,6 +31,18 @@ import { findFeasibleTimings } from "./timing.ts";
 import type { FeasibleTimingRequest, FeasibleTimingResult, OperationTiming } from "./timing.ts";
 import { analyzePlantRates as analyzePlantRatesWith, inspectPlant as inspectPlantWith } from "./plant-analysis.ts";
 import type { PlantInspection, PlantRateAnalysis } from "./plant-analysis.ts";
+import {
+  duplicatePlantSelection,
+  addPlantRecipe,
+  deletePlantProcess,
+  expandPlantBoundary,
+  machineLayoutForRecipe,
+  ensurePlantOutputDestinations,
+  isLastPlantProcessOutputDestination,
+  mergePlantResourceComponents,
+  removeDisconnectedPlantBoundaries,
+  splitPlantConnection,
+} from "./core/index.ts";
 
 export type { Recipe } from "./recipes.ts";
 export {
@@ -43,7 +55,18 @@ export {
   removePlantConstraint,
   redirectPlantConnectionTarget,
   updatePlantConstraint,
+  duplicatePlantSelection,
+  addPlantRecipe,
+  deletePlantProcess,
+  expandPlantBoundary,
+  machineLayoutForRecipe,
+  ensurePlantOutputDestinations,
+  isLastPlantProcessOutputDestination,
+  mergePlantResourceComponents,
+  removeDisconnectedPlantBoundaries,
+  splitPlantConnection,
 };
+export type { PlantEditDependencies } from "./core/index.ts";
 export type { Plant, PlantComponent, PlantConnection, PlantConstraint, PlantQuantityRef, PortRef, Resource };
 export type ResourceRate = { resource: Resource; perMinute: number };
 

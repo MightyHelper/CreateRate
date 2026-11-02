@@ -1,0 +1,9 @@
+{
+  "blockStep": 16,
+  "basinMethods": ["mixing", "compacting"],
+  "basinModel": "create:basin",
+  "heaterModels": {
+    "heated": "create:blaze_burner",
+    "superheated": "create:blaze_burner"
+  }
+}
