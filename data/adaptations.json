@@ -1,0 +1,22 @@
+{
+  "minecraft:smelting": [
+    { "method": "bulk_blasting", "machine": "encased_fan" }
+  ],
+  "minecraft:blasting": [
+    { "method": "bulk_blasting", "machine": "encased_fan" }
+  ],
+  "minecraft:smoking": [
+    { "method": "bulk_smoking", "machine": "encased_fan" }
+  ],
+  "minecraft:crafting_shaped": [
+    { "method": "mechanical_crafting", "machine": "mechanical_crafter", "config": "allowRegularCraftingInCrafter" },
+    { "method": "pressing", "machine": "mechanical_press", "config": "allowShapedSquareInPress", "filter": "single_ingredient_square" }
+  ],
+  "minecraft:crafting_shapeless": [
+    { "method": "mechanical_crafting", "machine": "mechanical_crafter", "config": "allowRegularCraftingInCrafter" },
+    { "method": "mixing", "machine": "mechanical_mixer", "config": "allowShapelessInMixer" }
+  ],
+  "minecraft:stonecutting": [
+    { "method": "saw_cutting", "machine": "mechanical_saw", "config": "allowStonecuttingOnSaw" }
+  ]
+}

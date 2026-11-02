@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#101411">
+    <title>CreateRate</title>
+    <link rel="stylesheet" href="/src/ui.css">
+  </head>
+  <body>
+    <main>
+      <button id="reset-plant" class="canvas-reset" type="button">Reset</button>
+      <button id="fit-view" class="canvas-fit" type="button" aria-label="Fit plant to view">Fit</button>
+      <svg id="plant-canvas" aria-label="Production plant canvas" role="application">
+        <defs>
+          <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="1" fill="#303932"></circle>
+          </pattern>
+          <marker id="arrowhead" markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto">
+            <path d="M0,0 L5,2.5 L0,5 z" fill="context-stroke"></path>
+          </marker>
+        </defs>
+        <rect id="canvas-background" x="0" y="0" width="100%" height="100%" fill="url(#grid)"></rect>
+        <g id="world"></g>
+        <g id="interaction-preview" aria-hidden="true"></g>
+        <rect id="marquee" hidden rx="3"></rect>
+      </svg>
+      <section id="empty-hint" class="empty-hint">
+        <p>Double-tap empty space to add a process. Shift-double-tap to add an item source or sink. Double-tap a resource square to use or produce its item.</p>
+      </section>
+      <aside id="selection-info" class="selection-info" hidden>
+        <span id="selection-label"></span>
+        <div id="selection-controls" class="selection-controls"></div>
+        <button id="delete-selected" type="button" hidden>Delete</button>
+      </aside>
+      <output id="status" class="status" aria-live="polite">Ready</output>
+    </main>
+    <dialog id="recipe-picker" class="recipe-picker">
+      <form method="dialog" class="picker-form">
+        <header><strong id="picker-title">Choose a recipe</strong><button value="cancel" aria-label="Close">×</button></header>
+        <input id="recipe-search" type="search" placeholder="Search recipes or items" autocomplete="off">
+        <div id="recipe-options" class="recipe-options"></div>
+      </form>
+    </dialog>
+    <dialog id="item-picker" class="recipe-picker">
+      <form method="dialog" class="picker-form">
+        <header><strong>Add item source or sink</strong><button value="cancel" aria-label="Close">×</button></header>
+        <input id="item-search" type="search" placeholder="Search items" autocomplete="off">
+        <div id="item-options" class="recipe-options"></div>
+      </form>
+    </dialog>
+    <dialog id="constraint-editor" class="constraint-editor">
+      <form id="constraint-form" class="constraint-form">
+        <header><strong id="constraint-title">Configure constraint</strong><button id="constraint-close" type="button" aria-label="Close">×</button></header>
+        <label>Equal to <span class="constraint-input"><input id="constraint-equals" type="number" min="0" step="any"><span id="constraint-unit-equals"></span></span></label>
+        <label>Greater than or equal to (GEQ) <span class="constraint-input"><input id="constraint-minimum" type="number" min="0" step="any"><span id="constraint-unit-minimum"></span></span></label>
+        <label>Less than or equal to (LEQ) <span class="constraint-input"><input id="constraint-maximum" type="number" min="0" step="any"><span id="constraint-unit-maximum"></span></span></label>
+        <label class="constraint-check"><input id="constraint-integer" type="checkbox"> Integer</label>
+        <label class="constraint-check"><input id="constraint-power-two" type="checkbox"> Power of two</label>
+        <p class="constraint-error" id="constraint-error" hidden></p>
+        <footer><button id="constraint-clear" type="button">Clear</button><span></span><button id="constraint-apply" type="button">Apply</button></footer>
+      </form>
+    </dialog>
+    <script type="module" src="/build/ui.js"></script>
+  </body>
+</html>

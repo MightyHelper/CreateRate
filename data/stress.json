@@ -1,0 +1,10 @@
+{
+  "mechanical_mixer": { "suPerRpm": 4 },
+  "mechanical_press": { "suPerRpm": 8 },
+  "crushing_wheels": { "suPerRpm": 8, "unitsPerProcess": 2 },
+  "millstone": { "suPerRpm": 4 },
+  "mechanical_saw": { "suPerRpm": 4 },
+  "deployer": { "suPerRpm": 4 },
+  "encased_fan": { "suPerRpm": 2 },
+  "mechanical_crafter": { "suPerRpm": 2, "unitsFromRecipePattern": true }
+}

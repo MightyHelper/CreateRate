@@ -1,0 +1,54 @@
+{
+  "ticksPerSecond": 20,
+  "fixedDurationMachines": {
+    "furnace": 1,
+    "blast_furnace": 1,
+    "smoker": 1,
+    "campfire": 4
+  },
+  "encasedFan": {
+    "processingTimeTicks": 150,
+    "itemsPerProcessingStep": 16
+  },
+  "crushingWheels": {
+    "rpmMultiplier": 4,
+    "stackSizeLogBase": 2,
+    "minimumProcessingSpeed": 0.25,
+    "maximumProcessingSpeed": 20,
+    "recipeApplyThresholdTicks": 20,
+    "defaultRecipeDurationTicks": 100
+  },
+  "millstone": {
+    "rpmPerProcessingSpeed": 16,
+    "minimumProcessingSpeed": 1,
+    "maximumProcessingSpeed": 512,
+    "recipeRestartTicks": 1
+  },
+  "mechanicalSaw": {
+    "rpmPerProcessingSpeed": 24,
+    "minimumProcessingSpeed": 1,
+    "maximumProcessingSpeed": 128,
+    "itemsPerDurationStep": 5,
+    "recipeApplyThresholdTicks": 5,
+    "postApplyTicks": 20,
+    "startupTicks": 1,
+    "defaultRecipeDurationTicks": 50
+  },
+  "mechanicalMixer": {
+    "minimumRpm": 32,
+    "animationTicks": 40,
+    "referenceRpm": 512,
+    "defaultRecipeDurationTicks": 100,
+    "durationReferenceTicks": 100,
+    "recipeWorkPerDuration": 15,
+    "minimumProcessingTicks": 1,
+    "maximumProcessingTicks": 512
+  },
+  "mechanicalPress": {
+    "minimumRpm": 1,
+    "cycleTicks": 240,
+    "referenceRpm": 512,
+    "minimumTickAdvance": 1,
+    "maximumTickAdvance": 60
+  }
+}
