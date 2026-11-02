@@ -10,11 +10,14 @@ import {
   addPlantConstraint,
   connectPlantPorts,
   createPlant,
+  deletePlantConnection,
   disconnectPlantPorts,
   removePlantComponent,
   removePlantConstraint,
+  togglePlantConnection,
   redirectPlantConnectionTarget,
   resourceKey,
+  setPlantConnectionSecondary,
   updatePlantConstraint,
 } from "./plant.ts";
 import type {
@@ -31,9 +34,14 @@ import { findFeasibleTimings } from "./timing.ts";
 import type { FeasibleTimingRequest, FeasibleTimingResult, OperationTiming } from "./timing.ts";
 import { analyzePlantRates as analyzePlantRatesWith, inspectPlant as inspectPlantWith } from "./plant-analysis.ts";
 import type { PlantInspection, PlantRateAnalysis } from "./plant-analysis.ts";
+export { parsePlantTransferYaml, plantTransferYaml } from "./core/plant-transfer.ts";
+export type { PlantTransferDocument, PlantTransferLayout, PlantTransferMode } from "./core/plant-transfer.ts";
 import {
   duplicatePlantSelection,
+  bypassPlantPool,
   addPlantRecipe,
+  addPlantRecipeAtPort,
+  addPlantBoundaryAtPort,
   deletePlantProcess,
   expandPlantBoundary,
   machineLayoutForRecipe,
@@ -42,6 +50,7 @@ import {
   mergePlantResourceComponents,
   removeDisconnectedPlantBoundaries,
   splitPlantConnection,
+  insertPoolInPlantConnection,
 } from "./core/index.ts";
 
 export type { Recipe } from "./recipes.ts";
@@ -50,13 +59,19 @@ export {
   addPlantConstraint,
   connectPlantPorts,
   createPlant,
+  deletePlantConnection,
   disconnectPlantPorts,
   removePlantComponent,
   removePlantConstraint,
   redirectPlantConnectionTarget,
+  setPlantConnectionSecondary,
+  togglePlantConnection,
   updatePlantConstraint,
   duplicatePlantSelection,
+  bypassPlantPool,
   addPlantRecipe,
+  addPlantRecipeAtPort,
+  addPlantBoundaryAtPort,
   deletePlantProcess,
   expandPlantBoundary,
   machineLayoutForRecipe,
@@ -65,6 +80,7 @@ export {
   mergePlantResourceComponents,
   removeDisconnectedPlantBoundaries,
   splitPlantConnection,
+  insertPoolInPlantConnection,
 };
 export type { PlantEditDependencies } from "./core/index.ts";
 export type { Plant, PlantComponent, PlantConnection, PlantConstraint, PlantQuantityRef, PortRef, Resource };

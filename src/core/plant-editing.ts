@@ -7,7 +7,7 @@ import {
   removePlantComponent,
   resourceKey,
 } from "../plant.ts";
-import type { Plant, PlantComponent, PlantConnection, PlantConstraint, Resource } from "../plant.ts";
+import type { Plant, PlantComponent, PlantConnection, PlantConstraint, PortRef, Resource } from "../plant.ts";
 
 export type PlantEditDependencies = {
   createId: (prefix: string) => string;
@@ -33,12 +33,69 @@ export function addPlantRecipe(plant: Plant, recipe: Recipe, createId: (prefix: 
   return { plant: next, processId, createdComponents };
 }
 
+export function addPlantRecipeAtPort(plant: Plant, recipe: Recipe, port: PortRef, dependencies: {
+  createId: (prefix: string) => string;
+  resourcesMatch: (a: Resource, b: Resource) => boolean;
+}) {
+  const { createId, resourcesMatch } = dependencies;
+  const outputs = recipe.outputs?.length ? recipe.outputs : [{ resource: recipe.output, amount: recipe.outputAmount }];
+  const input = port.direction === "output" ? recipe.inputs.find((candidate) => resourcesMatch(candidate, port.resource)) : undefined;
+  const output = port.direction === "input" ? outputs.find((candidate) => resourcesMatch(candidate.resource, port.resource)) : undefined;
+  if (port.direction === "output" && !input || port.direction === "input" && !output) {
+    throw new Error(`Recipe ${recipe.id} does not match ${port.resource.id}`);
+  }
+
+  const added = addPlantRecipe(plant, recipe, createId);
+  let next = added.plant;
+  const generatedBoundary = added.createdComponents.find((component) => port.direction === "output"
+    ? component.kind === "supply" && input && resourcesMatch(component.resource, input)
+    : component.kind === "demand" && output && resourcesMatch(component.resource, output.resource));
+  const createdComponents = [...added.createdComponents];
+  if (generatedBoundary) {
+    next = removePlantComponent(next, generatedBoundary.id);
+    createdComponents.splice(createdComponents.indexOf(generatedBoundary), 1);
+  }
+
+  next = connectPlantPorts(next, {
+    id: createId("flow"),
+    from: port.direction === "output"
+      ? port
+      : { componentId: added.processId, direction: "output", resource: output!.resource },
+    to: port.direction === "input"
+      ? port
+      : { componentId: added.processId, direction: "input", resource: input! },
+  });
+  return { plant: next, processId: added.processId, createdComponents };
+}
+
+export function addPlantBoundaryAtPort(plant: Plant, kind: "supply" | "demand" | "pool", resource: Resource, port: PortRef, dependencies: {
+  createId: (prefix: string) => string;
+  resourcesMatch: (a: Resource, b: Resource) => boolean;
+}) {
+  const { createId, resourcesMatch } = dependencies;
+  const allowed = port.direction === "output" ? kind === "demand" || kind === "pool" : kind === "supply" || kind === "pool";
+  if (!allowed) throw new Error(`A ${kind} cannot connect to this ${port.direction} port`);
+  if (!resourcesMatch(resource, port.resource)) throw new Error(`Choose an item matching ${port.resource.id}`);
+  const componentId = createId(kind === "pool" ? "pool" : kind === "supply" ? "source" : "sink");
+  let next = addPlantComponent(plant, { id: componentId, kind, resource });
+  next = connectPlantPorts(next, {
+    id: createId("flow"),
+    from: port.direction === "output"
+      ? port
+      : { componentId, direction: "output", resource },
+    to: port.direction === "input"
+      ? port
+      : { componentId, direction: "input", resource },
+  });
+  return { plant: next, componentId };
+}
+
 export function expandPlantBoundary(plant: Plant, componentId: string, recipe: Recipe, dependencies: {
   createId: (prefix: string) => string;
   resourcesMatch: (a: Resource, b: Resource) => boolean;
 }) {
   const boundary = plant.components.find(({ id }) => id === componentId);
-  if (!boundary || boundary.kind === "process") throw new Error(`Unknown resource boundary: ${componentId}`);
+  if (!boundary || (boundary.kind !== "supply" && boundary.kind !== "demand")) throw new Error(`Unknown resource boundary: ${componentId}`);
   const { createId, resourcesMatch } = dependencies;
   const outputs = recipe.outputs?.length ? recipe.outputs : [{ resource: recipe.output, amount: recipe.outputAmount }];
   const attached = boundary.kind === "supply"
@@ -85,8 +142,54 @@ export function expandPlantBoundary(plant: Plant, componentId: string, recipe: R
   return { plant: next, processId: added.processId, createdComponents, removedComponentIds };
 }
 
-export function recipesForPlantBoundary(recipes: Recipe[], boundary: Extract<PlantComponent, { kind: "supply" | "demand" }>, resourcesMatch: (a: Resource, b: Resource) => boolean): Recipe[] {
-  return recipes.filter((recipe) => boundary.kind === "supply"
+export function addPlantRecipeAtBoundary(plant: Plant, componentId: string, recipe: Recipe, dependencies: {
+  createId: (prefix: string) => string;
+  resourcesMatch: (a: Resource, b: Resource) => boolean;
+}) {
+  const boundary = plant.components.find(({ id }) => id === componentId);
+  if (!boundary || (boundary.kind !== "supply" && boundary.kind !== "demand")) throw new Error(`Unknown resource boundary: ${componentId}`);
+  const { createId, resourcesMatch } = dependencies;
+  const outputs = recipe.outputs?.length ? recipe.outputs : [{ resource: recipe.output, amount: recipe.outputAmount }];
+  const matchingInput = boundary.kind === "supply" ? recipe.inputs.find((input) => resourcesMatch(input, boundary.resource)) : undefined;
+  const matchingOutput = boundary.kind === "demand" ? outputs.find(({ resource }) => resourcesMatch(resource, boundary.resource)) : undefined;
+  if (boundary.kind === "supply" && !matchingInput || boundary.kind === "demand" && !matchingOutput) {
+    throw new Error(`Recipe ${recipe.id} does not match ${boundary.resource.id}`);
+  }
+
+  const added = addPlantRecipe(plant, recipe, createId);
+  let next = added.plant;
+  const matchingBoundary = added.createdComponents.find((component) => boundary.kind === "supply"
+    ? component.kind === "supply" && resourcesMatch(component.resource, boundary.resource)
+    : component.kind === "demand" && resourcesMatch(component.resource, boundary.resource));
+  const createdComponents = [...added.createdComponents];
+  if (matchingBoundary) {
+    next = removePlantComponent(next, matchingBoundary.id);
+    createdComponents.splice(createdComponents.indexOf(matchingBoundary), 1);
+  }
+
+  if (boundary.kind === "supply" && matchingInput) {
+    next = connectPlantPorts(next, {
+      id: createId("flow"),
+      from: { componentId, direction: "output", resource: boundary.resource },
+      to: { componentId: added.processId, direction: "input", resource: matchingInput },
+    });
+  } else if (boundary.kind === "demand" && matchingOutput) {
+    next = connectPlantPorts(next, {
+      id: createId("flow"),
+      from: { componentId: added.processId, direction: "output", resource: matchingOutput.resource },
+      to: { componentId, direction: "input", resource: boundary.resource },
+    });
+  }
+  return { plant: next, processId: added.processId, createdComponents };
+}
+
+export function recipesForPlantBoundary(
+  recipes: Recipe[],
+  boundary: Extract<PlantComponent, { kind: "supply" | "demand" }>,
+  resourcesMatch: (a: Resource, b: Resource) => boolean,
+  action: "produce" | "use" = boundary.kind === "supply" ? "produce" : "use",
+): Recipe[] {
+  return recipes.filter((recipe) => action === "produce"
     ? (recipe.outputs?.length ? recipe.outputs : [{ resource: recipe.output, amount: recipe.outputAmount }]).some(({ resource }) => resourcesMatch(resource, boundary.resource))
     : recipe.inputs.some((input) => resourcesMatch(input, boundary.resource)));
 }
@@ -150,9 +253,9 @@ export function deletePlantProcess(plant: Plant, processId: string, createId: (p
   const outputConstraints = plant.constraints.filter((constraint) =>
     constraint.target.kind === "port-rate" && constraint.target.port.componentId === processId && constraint.target.port.direction === "output");
   const incoming = plant.connections.filter((edge) => edge.to.componentId === processId &&
-    plant.components.some((component) => component.id === edge.from.componentId && component.kind === "process"));
+    plant.components.some((component) => component.id === edge.from.componentId && (component.kind === "process" || component.kind === "pool")));
   const outgoing = plant.connections.filter((edge) => edge.from.componentId === processId &&
-    plant.components.some((component) => component.id === edge.to.componentId && component.kind === "process"));
+    plant.components.some((component) => component.id === edge.to.componentId && (component.kind === "process" || component.kind === "pool")));
   const materials = new Map<string, Resource>();
   for (const edge of incoming) materials.set(resourceKey(edge.to.resource), edge.to.resource);
 
@@ -228,7 +331,7 @@ export function deletePlantProcess(plant: Plant, processId: string, createId: (p
 export function mergePlantResourceComponents(plant: Plant, sourceId: string, targetId: string, createId: (prefix: string) => string): Plant {
   const source = plant.components.find(({ id }) => id === sourceId);
   const target = plant.components.find(({ id }) => id === targetId);
-  if (!source || !target || source.kind === "process" || target.kind === "process") throw new Error("Only resource squares can be merged");
+  if (!source || !target || source.kind === "process" || target.kind === "process" || source.kind === "pool" || target.kind === "pool") throw new Error("Only source and sink squares can be merged");
   if (resourceKey(source.resource) !== resourceKey(target.resource)) throw new Error("Resource squares must contain the same item");
 
   if (source.kind !== target.kind) {
@@ -264,10 +367,54 @@ export function splitPlantConnection(plant: Plant, connectionId: string, createI
   next = addPlantComponent(next, { id: demandId, kind: "demand", resource: edge.from.resource });
   next = addPlantComponent(next, { id: supplyId, kind: "supply", resource: edge.to.resource });
   const firstConnectionId = createId("flow"), secondConnectionId = createId("flow");
-  next = connectPlantPorts(next, { id: firstConnectionId, from: edge.from, to: { componentId: demandId, direction: "input", resource: edge.from.resource } });
-  next = connectPlantPorts(next, { id: secondConnectionId, from: { componentId: supplyId, direction: "output", resource: edge.to.resource }, to: edge.to });
+  next = connectPlantPorts(next, { id: firstConnectionId, from: edge.from, to: { componentId: demandId, direction: "input", resource: edge.from.resource }, ...(edge.secondary ? { secondary: true } : {}) });
+  next = connectPlantPorts(next, { id: secondConnectionId, from: { componentId: supplyId, direction: "output", resource: edge.to.resource }, to: edge.to, ...(edge.secondary ? { secondary: true } : {}) });
   for (const constraint of rateConstraints) next = addPlantConstraint(next, { ...constraint, target: { kind: "connection-rate", connectionId: firstConnectionId } });
   return { plant: next, demandId, supplyId, firstConnectionId, secondConnectionId };
+}
+
+export function insertPoolInPlantConnection(plant: Plant, connectionId: string, createId: (prefix: string) => string) {
+  const edge = plant.connections.find(({ id }) => id === connectionId);
+  if (!edge) throw new Error(`Unknown plant connection: ${connectionId}`);
+  const rateConstraints = plant.constraints.filter((constraint) => constraint.target.kind === "connection-rate" && constraint.target.connectionId === connectionId);
+  const poolId = createId("pool");
+  let next = disconnectPlantPorts(plant, connectionId);
+  next = addPlantComponent(next, { id: poolId, kind: "pool", resource: edge.from.resource });
+  const firstConnectionId = createId("flow"), secondConnectionId = createId("flow");
+  next = connectPlantPorts(next, { id: firstConnectionId, from: edge.from, to: { componentId: poolId, direction: "input", resource: edge.from.resource }, ...(edge.secondary ? { secondary: true } : {}) });
+  next = connectPlantPorts(next, { id: secondConnectionId, from: { componentId: poolId, direction: "output", resource: edge.from.resource }, to: edge.to, ...(edge.secondary ? { secondary: true } : {}) });
+  for (const constraint of rateConstraints) next = addPlantConstraint(next, { ...constraint, target: { kind: "connection-rate", connectionId: firstConnectionId } });
+  return { plant: next, poolId, firstConnectionId, secondConnectionId };
+}
+
+export function bypassPlantPool(plant: Plant, poolId: string, createId: (prefix: string) => string): Plant | undefined {
+  const pool = plant.components.find(({ id }) => id === poolId);
+  if (pool?.kind !== "pool") throw new Error(`Unknown storage pool: ${poolId}`);
+  const incoming = plant.connections.filter((edge) => edge.to.componentId === poolId);
+  const outgoing = plant.connections.filter((edge) => edge.from.componentId === poolId);
+  if (incoming.length !== 1 || outgoing.length !== 1) return undefined;
+
+  const [input] = incoming, [output] = outgoing;
+  const connectionId = createId("flow");
+  let next = disconnectPlantPorts(plant, input.id);
+  next = disconnectPlantPorts(next, output.id);
+  next = connectPlantPorts(next, {
+    id: connectionId,
+    from: input.from,
+    to: output.to,
+    ...(input.secondary || output.secondary ? { secondary: true } : {}),
+  });
+  const movedConstraints = plant.constraints.filter((constraint) =>
+    constraint.target.kind === "connection-rate" && (constraint.target.connectionId === input.id || constraint.target.connectionId === output.id) ||
+    constraint.target.kind === "port-rate" && constraint.target.port.componentId === poolId);
+  next = removePlantComponent(next, poolId);
+  for (const constraint of movedConstraints) {
+    next = addPlantConstraint(next, {
+      ...constraint,
+      target: { kind: "connection-rate", connectionId },
+    });
+  }
+  return next;
 }
 
 export function removeDisconnectedPlantBoundaries(plant: Plant) {
@@ -279,7 +426,8 @@ export function removeDisconnectedPlantBoundaries(plant: Plant) {
 }
 
 export function ensurePlantOutputDestinations(plant: Plant, dependencies: PlantEditDependencies) {
-  const selfConnections = plant.connections.filter((edge) => edge.from.componentId === edge.to.componentId);
+  const selfConnections = plant.connections.filter((edge) =>
+    edge.from.componentId === edge.to.componentId && !isValidSelfConnection(edge, plant, dependencies));
   let next = plant;
   for (const edge of selfConnections) next = disconnectPlantPorts(next, edge.id);
   const createdComponents: PlantComponent[] = [];
@@ -298,9 +446,21 @@ export function ensurePlantOutputDestinations(plant: Plant, dependencies: PlantE
   return { plant: next, createdComponents, removedConnectionIds: selfConnections.map(({ id }) => id) };
 }
 
+function isValidSelfConnection(edge: PlantConnection, plant: Plant, dependencies: PlantEditDependencies): boolean {
+  if (edge.from.direction !== "output" || edge.to.direction !== "input") return false;
+  const component = plant.components.find(({ id }) => id === edge.from.componentId);
+  if (component?.kind !== "process") return false;
+  const recipe = dependencies.findRecipe(component.recipeId);
+  if (!recipe) return false;
+  const outputs = recipe.outputs?.length ? recipe.outputs : [{ resource: recipe.output, amount: recipe.outputAmount }];
+  return outputs.some(({ resource }) => resourceKey(resource) === resourceKey(edge.from.resource)) &&
+    recipe.inputs.some((input) => resourceKey(input) === resourceKey(edge.to.resource) ||
+      (input.type === edge.to.resource.type && input.alternatives?.includes(edge.to.resource.id)));
+}
+
 export function isLastPlantProcessOutputDestination(plant: Plant, componentId: string): boolean {
   const component = plant.components.find(({ id }) => id === componentId);
-  if (component?.kind !== "demand") return false;
+  if (component?.kind !== "demand" && component?.kind !== "pool") return false;
   return plant.connections.filter((edge) => edge.to.componentId === componentId).some((edge) => {
     const source = plant.components.find(({ id }) => id === edge.from.componentId);
     return source?.kind === "process" && plant.connections.filter((candidate) => candidate.from.componentId === source.id &&

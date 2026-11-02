@@ -53,13 +53,22 @@ type SawRules = {
   defaultRecipeDurationTicks: number;
 };
 
+type MechanicalDrillRules = {
+  speedPerRpm: number;
+  progressPerBlock: number;
+  maximumProgressPerTick: number;
+};
+
 type TimingRules = {
   ticksPerSecond: number;
   fixedDurationMachines: Record<string, number>;
+  randomTick: { blocksPerSection: number; attemptsPerSectionPerTick: number };
+  randomTickProcesses: Record<string, { successChancePerRandomTick: number; successfulTicksPerOutput?: number }>;
   encasedFan: FanRules;
   crushingWheels: CrushingWheelRules;
   millstone: MillstoneRules;
   mechanicalSaw: SawRules;
+  mechanicalDrill: MechanicalDrillRules;
   mechanicalMixer: MixerRules;
   mechanicalPress: PressRules;
 };
@@ -111,7 +120,7 @@ export type FeasibleTimingResult = {
   operatingPoints: FeasibleOperatingPoint[];
 };
 
-const rpmMachines = new Set(["mechanical_mixer", "mechanical_press", "crushing_wheels", "millstone", "mechanical_saw"]);
+const rpmMachines = new Set(["mechanical_mixer", "mechanical_press", "crushing_wheels", "millstone", "mechanical_saw", "mechanical_drill"]);
 const stackSizeMachines = new Set(["encased_fan", "crushing_wheels", "mechanical_saw"]);
 
 export type OperatingCondition = "rpm" | "stackSize";
@@ -125,10 +134,17 @@ export function requiredOperatingConditions(recipe: Recipe): OperatingCondition[
 }
 
 export function calculateTiming(recipe: Recipe, rpm: number, stackSize = 1): OperationTiming {
+  const randomTickProcess = rules.randomTickProcesses[recipe.machine ?? ""];
+  if (randomTickProcess) {
+    const ticksPerSuccess = rules.randomTick.blocksPerSection /
+      rules.randomTick.attemptsPerSectionPerTick / randomTickProcess.successChancePerRandomTick;
+    return fixedCycleTiming(ticksPerSuccess * (randomTickProcess.successfulTicksPerOutput ?? 1), recipe.outputAmount, 1);
+  }
   if (recipe.machine === "encased_fan") return fanTiming(recipe, stackSize);
   if (recipe.machine === "crushing_wheels") return crushingWheelTiming(recipe, rpm, stackSize);
   if (recipe.machine === "millstone") return millstoneTiming(recipe, rpm);
   if (recipe.machine === "mechanical_saw") return sawTiming(recipe, rpm, stackSize);
+  if (recipe.machine === "mechanical_drill") return mechanicalDrillTiming(recipe, rpm);
   const machineSlots = rules.fixedDurationMachines[recipe.machine ?? ""];
   if (machineSlots !== undefined) {
     if (!recipe.durationTicks || recipe.durationTicks <= 0) {
@@ -354,6 +370,20 @@ function sawTiming(recipe: Recipe, rpm: number, stackSize: number): OperationTim
   }
 
   return fixedCycleTiming(cycleTicks, recipe.outputAmount, runsPerCycle);
+}
+
+function mechanicalDrillTiming(recipe: Recipe, rpm: number): OperationTiming {
+  const config = rules.mechanicalDrill;
+  const hardness = recipe.blockHardness;
+  if (!Number.isFinite(rpm) || rpm === 0) throw new Error("Mechanical drills require a non-zero RPM");
+  if (hardness === undefined || !Number.isFinite(hardness) || hardness <= 0) {
+    throw new Error(`No block hardness for ${recipe.id}`);
+  }
+  const breakSpeed = Math.abs(rpm) * config.speedPerRpm;
+  const progressPerTick = Math.max(1, Math.min(config.maximumProgressPerTick, Math.trunc(breakSpeed / hardness)));
+  const progressTicks = Math.ceil(config.progressPerBlock / progressPerTick);
+  const ticksPerProgress = Math.floor(hardness / breakSpeed) + 1;
+  return fixedCycleTiming(progressTicks * ticksPerProgress, recipe.outputAmount, 1);
 }
 
 function itemRunsPerCycle(recipe: Recipe, stackSize: number, machine: string): number {

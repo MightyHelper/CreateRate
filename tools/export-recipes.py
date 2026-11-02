@@ -2,6 +2,7 @@
 """Export recipe and item/fluid tag JSON from Minecraft JARs and datapacks."""
 
 import argparse
+import gzip
 from io import BytesIO
 import json
 import re
@@ -18,6 +19,8 @@ def main() -> None:
     parser.add_argument("--datapack", type=Path, action="append", default=[], help="datapack directory or ZIP; repeat for pack priority order")
     parser.add_argument("--minecraft-version", help="Minecraft version represented by the export")
     parser.add_argument("--create-version", help="Create version represented by the export")
+    parser.add_argument("--item-model-ids-output", type=Path, default=Path("data/item-model-ids.json"), help="write the item-to-model index to this JSON file")
+    parser.add_argument("--item-models-output", type=Path, default=Path("data/item-models.json.gz"), help="write compressed resolved 3D item models to this file")
     parser.add_argument("--fluid-units-per-millibucket", type=float, help="override the fluid amount scale (auto-detects Fabric's droplet scale)")
     parser.add_argument("--icon-dir", type=Path, default=Path("data/item-icons"), help="directory for extracted item textures")
     args = parser.parse_args()
@@ -47,10 +50,13 @@ def main() -> None:
         raw_models.update(pack_models)
         raw_model_assets.update(pack_model_assets)
 
-    machine_models = resolve_machine_models(raw_models, raw_model_assets)
-
     item_tags = resolve_tags(tag_values["items"])
     fluid_tags = resolve_tags(tag_values["fluids"])
+    machine_models = resolve_models(raw_models, raw_model_assets)
+    item_ids = collect_recipe_item_ids(recipes.values()) | {item for members in item_tags.values() for item in members}
+    item_model_ids = {item_id: item_model_id(item_id) for item_id in item_ids if item_model_path(item_id) in raw_models}
+    item_models = resolve_models(raw_models, raw_model_assets, set(item_model_ids.values()), generate_default_cube=False)
+    item_model_ids = {item_id: model_id for item_id, model_id in item_model_ids.items() if model_id in item_models}
     for entry in recipes.values():
         active = recipe_conditions(entry["recipe"], mods, item_tags, fluid_tags)
         entry["active"] = active
@@ -58,6 +64,12 @@ def main() -> None:
     if fluid_units_per_millibucket is None:
         fluid_units_per_millibucket = 81 if "fabric-api" in mods else 1
 
+    args.item_model_ids_output.parent.mkdir(parents=True, exist_ok=True)
+    args.item_model_ids_output.write_text(json.dumps(item_model_ids, separators=(",", ":")))
+    args.item_models_output.parent.mkdir(parents=True, exist_ok=True)
+    with args.item_models_output.open("wb") as output:
+        with gzip.GzipFile(fileobj=output, mode="wb", mtime=0) as compressed:
+            compressed.write(json.dumps({"itemModels": item_models}, separators=(",", ":")).encode("utf-8"))
     json.dump({
         "minecraftVersion": args.minecraft_version,
         "createVersion": args.create_version,
@@ -127,11 +139,43 @@ def read_source(source: Path, icon_dir: Path):
     return recipes, tags, mods, icons, animations, models, model_assets
 
 
-def resolve_machine_models(raw_models, model_assets):
+def item_model_path(item_id):
+    namespace, path = item_id.split(":", 1) if ":" in item_id else ("minecraft", item_id)
+    return f"assets/{namespace}/models/item/{path}.json"
+
+
+def item_model_id(item_id):
+    namespace, path = item_id.split(":", 1) if ":" in item_id else ("minecraft", item_id)
+    return f"{namespace}:item/{path}"
+
+
+def collect_recipe_item_ids(entries):
+    item_ids = set()
+
+    def visit(value):
+        if isinstance(value, dict):
+            item = value.get("item")
+            if isinstance(item, str) and not item.startswith("#"):
+                item_ids.add(item if ":" in item else f"minecraft:{item}")
+            items = value.get("items")
+            if isinstance(items, list):
+                item_ids.update(item if ":" in item else f"minecraft:{item}" for item in items if isinstance(item, str) and not item.startswith("#"))
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    for entry in entries:
+        visit(entry.get("recipe", {}))
+    return item_ids
+
+
+def resolve_models(raw_models, model_assets, model_ids=None, generate_default_cube=True):
     """Flatten selected Minecraft item models into face geometry and resolved texture IDs."""
     model_map = json.loads((Path(__file__).parents[1] / "data/machine-model-ids.json").read_text())
     layout = json.loads((Path(__file__).parents[1] / "data/machine-layout-rules.json").read_text())
-    model_ids = set(model_map.values()) | {layout["basinModel"], *layout["heaterModels"].values()}
+    model_ids = model_ids if model_ids is not None else set(model_map.values()) | {layout["basinModel"], *layout["heaterModels"].values()}
     cache = {}
 
     def model_path(model_id):
@@ -196,8 +240,10 @@ def resolve_machine_models(raw_models, model_assets):
                 if texture:
                     faces[direction] = {**face, "texture": texture}
             elements.append({**element, "faces": faces})
-        if not any(element["faces"] for element in elements) and not model["triangles"]:
+        if generate_default_cube and not any(element["faces"] for element in elements) and not model["triangles"]:
             elements = default_cube_elements(model["textures"], namespace)
+        if not any(element["faces"] for element in elements) and not model["triangles"]:
+            continue
         fallback_texture = resolve_texture(model["textures"].get("layer0", ""), model["textures"], namespace)
         result[model_id] = {
             "elements": elements,

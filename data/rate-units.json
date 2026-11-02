@@ -1,0 +1,10 @@
+{
+  "itemsPerStack": 64,
+  "periods": [
+    { "id": "second", "label": "second", "symbol": "s", "minutes": 0.016666666666666666 },
+    { "id": "minute", "label": "minute", "symbol": "min", "minutes": 1 },
+    { "id": "hour", "label": "hour", "symbol": "h", "minutes": 60 },
+    { "id": "minecraft-day", "label": "Minecraft day", "symbol": "Minecraft day", "minutes": 20 },
+    { "id": "real-day", "label": "real day", "symbol": "real day", "minutes": 1440 }
+  ]
+}

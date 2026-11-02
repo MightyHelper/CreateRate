@@ -1,19 +1,27 @@
 import { addPlantConstraint, removePlantConstraint, resourceKey } from "../plant.ts";
 import type { Plant, PlantComponent, PlantConstraint, PlantQuantityRef, Resource } from "../plant.ts";
 import type { Recipe } from "../recipes.ts";
+import { requiredOperatingConditions } from "../timing.ts";
+import { recipeOutputPorts } from "../recipe-queries.ts";
 
 export function constraintTargetsFor(component: PlantComponent, recipe?: Recipe): PlantQuantityRef[] {
   if (component.kind !== "process") {
+    if (component.kind === "pool") return (["input", "output"] as const).map((direction) => ({
+      kind: "port-rate" as const,
+      port: { componentId: component.id, direction, resource: component.resource },
+    }));
     return [{ kind: "port-rate", port: { componentId: component.id, direction: component.kind === "supply" ? "output" : "input", resource: component.resource } }];
   }
+  const natural = recipe?.processKind === "natural";
+  const conditions = recipe ? requiredOperatingConditions(recipe) : [];
   const targets: PlantQuantityRef[] = [
-    { kind: "rpm", componentId: component.id },
+    ...(!natural ? [{ kind: "rpm" as const, componentId: component.id }] : []),
     { kind: "machine-count", componentId: component.id },
-    { kind: "stress", componentId: component.id },
+    ...(!natural ? [{ kind: "stress" as const, componentId: component.id }] : []),
+    ...(conditions.includes("stackSize") ? [{ kind: "stack-size" as const, componentId: component.id }] : []),
   ];
-  if (["encased_fan", "crushing_wheels", "mechanical_saw"].includes(recipe?.machine ?? "")) targets.push({ kind: "stack-size", componentId: component.id });
   for (const input of recipe?.inputs ?? []) targets.push({ kind: "port-rate", port: { componentId: component.id, direction: "input", resource: input } });
-  for (const output of recipe?.outputs ?? (recipe ? [{ resource: recipe.output, amount: recipe.outputAmount }] : [])) {
+  for (const output of recipeOutputPorts(recipe)) {
     targets.push({ kind: "port-rate", port: { componentId: component.id, direction: "output", resource: output.resource } });
   }
   return targets;

@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
-import { listItemAnimations, listItemIcons, listMachineModelIds, listMachineModels, listMachineLayoutRules, listRecipes, listResourceTags } from "./recipes.ts";
+import { listItemAnimations, listItemIcons, listItemModelIds, listMachineModelIds, listMachineModels, listMachineLayoutRules, listRecipes, listResourceTags } from "./recipes.ts";
 
-const recipes = listRecipes().map(({ id, method, machine, machineUnits, heatRequirement, inputs, outputs, output, outputAmount, durationTicks }) => ({
-  id, method, machine, machineUnits, heatRequirement, inputs, outputs, output, outputAmount, durationTicks,
+const recipes = listRecipes().map(({ id, processKind, method, machine, blockHardness, machineUnits, heatRequirement, inputs, outputs, output, outputAmount, durationTicks, loops, sequence }) => ({
+  id, processKind, method, machine, blockHardness, machineUnits, heatRequirement, inputs, outputs, output, outputAmount, durationTicks, loops, sequence,
 }));
-writeFileSync(new URL("./browser-recipes.json", import.meta.url), JSON.stringify({ recipes, itemIcons: listItemIcons(), itemAnimations: listItemAnimations(), machineModelIds: listMachineModelIds(), machineModels: listMachineModels(), machineLayoutRules: listMachineLayoutRules(), ...listResourceTags() }));
+writeFileSync(new URL("./browser-recipes.json", import.meta.url), JSON.stringify({ recipes, itemIcons: listItemIcons(), itemAnimations: listItemAnimations(), itemModelIds: listItemModelIds(), machineModelIds: listMachineModelIds(), machineModels: listMachineModels(), machineLayoutRules: listMachineLayoutRules(), ...listResourceTags() }));

@@ -6,9 +6,10 @@ export type PortRef = { componentId: string; direction: "input" | "output"; reso
 export type PlantComponent =
   | { id: string; kind: "process"; recipeId: string }
   | { id: string; kind: "supply"; resource: Resource }
-  | { id: string; kind: "demand"; resource: Resource };
+  | { id: string; kind: "demand"; resource: Resource }
+  | { id: string; kind: "pool"; resource: Resource };
 
-export type PlantConnection = { id: string; from: PortRef; to: PortRef };
+export type PlantConnection = { id: string; from: PortRef; to: PortRef; secondary?: boolean };
 export type PlantQuantityRef =
   | { kind: "port-rate"; port: PortRef }
   | { kind: "connection-rate"; connectionId: string }
@@ -61,17 +62,27 @@ export function connectPlantPorts(plant: Plant, connection: PlantConnection): Pl
   if (connection.from.direction !== "output" || connection.to.direction !== "input") {
     throw new Error("Plant connections must go from an output port to an input port");
   }
-  if (connection.from.componentId === connection.to.componentId) {
-    throw new Error("A process cannot connect to itself");
-  }
-  if (!plant.components.some(({ id }) => id === connection.from.componentId) ||
-      !plant.components.some(({ id }) => id === connection.to.componentId)) {
+  const source = plant.components.find(({ id }) => id === connection.from.componentId);
+  const target = plant.components.find(({ id }) => id === connection.to.componentId);
+  if (!source || !target) {
     throw new Error("Both connected components must exist in the plant");
   }
-  if (resourceKey(connection.from.resource) !== resourceKey(connection.to.resource)) {
+  if (source.id === target.id && source.kind !== "process") {
+    throw new Error("Only a process can connect its output to its own input");
+  }
+  if (resourceKey(connection.from.resource) !== resourceKey(connection.to.resource) && target?.kind !== "process") {
     throw new Error("Connected ports must carry the same resource");
   }
   return { ...plant, connections: [...plant.connections, connection] };
+}
+
+export function togglePlantConnection(plant: Plant, connection: PlantConnection): { plant: Plant; connected: boolean } {
+  const samePort = (a: PortRef, b: PortRef) =>
+    a.componentId === b.componentId && a.direction === b.direction && resourceKey(a.resource) === resourceKey(b.resource);
+  const existing = plant.connections.find((edge) => samePort(edge.from, connection.from) && samePort(edge.to, connection.to));
+  return existing
+    ? { plant: disconnectPlantPorts(plant, existing.id), connected: false }
+    : { plant: connectPlantPorts(plant, connection), connected: true };
 }
 
 export function redirectPlantConnectionTarget(plant: Plant, connectionId: string, target: PortRef): Plant {
@@ -92,6 +103,30 @@ export function disconnectPlantPorts(plant: Plant, connectionId: string): Plant 
     connections: plant.connections.filter(({ id }) => id !== connectionId),
     constraints: plant.constraints.filter((constraint) =>
       constraint.target.kind !== "connection-rate" || constraint.target.connectionId !== connectionId),
+  };
+}
+
+export function deletePlantConnection(plant: Plant, connectionId: string): Plant {
+  const connection = plant.connections.find(({ id }) => id === connectionId);
+  if (!connection) throw new Error(`Unknown plant connection: ${connectionId}`);
+  const source = plant.components.find(({ id }) => id === connection.from.componentId);
+  const destinations = plant.connections.filter((candidate) =>
+    candidate.from.componentId === connection.from.componentId &&
+    candidate.from.direction === connection.from.direction &&
+    resourceKey(candidate.from.resource) === resourceKey(connection.from.resource));
+  if (source?.kind === "process" && destinations.length <= 1) {
+    throw new Error("Cannot delete the only destination of a process output");
+  }
+  return disconnectPlantPorts(plant, connectionId);
+}
+
+export function setPlantConnectionSecondary(plant: Plant, connectionId: string, secondary: boolean): Plant {
+  if (!plant.connections.some(({ id }) => id === connectionId)) throw new Error(`Unknown plant connection: ${connectionId}`);
+  return {
+    ...plant,
+    connections: plant.connections.map((connection) => connection.id === connectionId
+      ? { ...connection, secondary }
+      : connection),
   };
 }
 

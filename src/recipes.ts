@@ -15,6 +15,7 @@ export type RecipeOutput = {
 
 export type Recipe = {
   id: string;
+  processKind?: "natural";
   source?: string;
   conditional?: boolean;
   adaptedFrom?: string;
@@ -24,6 +25,7 @@ export type Recipe = {
   outputs: RecipeOutput[];
   method: string;
   machine?: string;
+  blockHardness?: number;
   heatRequirement?: string;
   durationTicks?: number;
   machineUnits?: number;
@@ -73,6 +75,7 @@ type Adaptation = {
   machine: string;
   config?: string;
   filter?: "single_ingredient_square";
+  preserveRecipeDuration?: boolean;
 };
 type ExportData = {
   minecraftVersion?: string;
@@ -89,6 +92,8 @@ type AdaptationData = Record<string, Adaptation[]>;
 type MachineData = Record<string, string>;
 
 const exported = JSON.parse(readFileSync(new URL("../data/modpack-recipes.json", import.meta.url), "utf8")) as ExportData;
+const customRecipes = JSON.parse(readFileSync(new URL("../data/custom-recipes.json", import.meta.url), "utf8")) as Recipe[];
+const itemModelIds = JSON.parse(readFileSync(new URL("../data/item-model-ids.json", import.meta.url), "utf8")) as Record<string, string>;
 const adaptations = JSON.parse(readFileSync(new URL("../data/adaptations.json", import.meta.url), "utf8")) as AdaptationData;
 const machineByType = JSON.parse(readFileSync(new URL("../data/machines.json", import.meta.url), "utf8")) as MachineData;
 const machineModelIds = JSON.parse(readFileSync(new URL("../data/machine-model-ids.json", import.meta.url), "utf8")) as MachineData;
@@ -118,15 +123,18 @@ for (const entry of exported.recipes) {
       adaptedFrom: recipe.id,
       method: adaptation.method,
       machine: adaptation.machine,
-      durationTicks: undefined,
+      durationTicks: adaptation.preserveRecipeDuration ? recipe.durationTicks : undefined,
       compatibilityConfig: adaptation.config,
     });
   }
 }
+for (const recipe of customRecipes) recipesById.set(recipe.id, recipe);
 const recipes = [...recipesById.values()];
 
-export function findRecipesProducing(item: string): Recipe[] {
-  const key = resourceKey({ type: "item", id: item.startsWith("item:") ? item.slice(5) : item });
+export function findRecipesProducing(resource: string): Recipe[] {
+  const type = resource.startsWith("fluid:") ? "fluid" : "item";
+  const id = /^(?:item|fluid):/.test(resource) ? resource.slice(resource.indexOf(":") + 1) : resource;
+  const key = resourceKey({ type, id });
   return recipes.filter((recipe) => recipe.outputs.some((output) => resourceKey(output.resource) === key));
 }
 
@@ -148,6 +156,10 @@ export function listItemIcons(): Record<string, string> {
 
 export function listItemAnimations(): Record<string, TextureAnimation> {
   return exported.itemAnimations ?? {};
+}
+
+export function listItemModelIds(): Record<string, string> {
+  return itemModelIds;
 }
 
 export function listMachineModelIds(): MachineData {
@@ -175,12 +187,13 @@ export function resourceKey(resource: Pick<Ingredient, "type" | "id">): string {
 }
 
 function normalizeRecipe(id: string, raw: RawRecipe, source?: string, conditional = false): Recipe | undefined {
-  const outputs = parseOutputs(raw);
+  const method = String(raw.type ?? "unknown").split(":").at(-1)!;
+  const parsedOutputs = parseOutputs(raw);
+  const outputs = method === "sequenced_assembly" ? normalizeWeightedOutputs(parsedOutputs) : parsedOutputs;
   // shortcut: recipes without a directly declared result stay out of item-output queries.
   if (outputs.length === 0) return undefined;
 
   const primary = outputs[0];
-  const method = String(raw.type ?? "unknown").split(":").at(-1)!;
   const machine = machineByType[raw.type];
   const durationTicks = number(raw.processingTime ?? raw.cookingtime);
   const loops = number(raw.loops);
@@ -202,6 +215,12 @@ function normalizeRecipe(id: string, raw: RawRecipe, source?: string, conditiona
     loops,
     sequence,
   };
+}
+
+function normalizeWeightedOutputs(outputs: RecipeOutput[]): RecipeOutput[] {
+  const totalWeight = outputs.reduce((total, output) => total + (output.chance ?? 1), 0);
+  if (totalWeight <= 0) return outputs;
+  return outputs.map((output) => ({ ...output, chance: (output.chance ?? 1) / totalWeight }));
 }
 
 function parseOutputs(raw: RawRecipe): RecipeOutput[] {

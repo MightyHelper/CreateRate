@@ -1,4 +1,7 @@
 {
+  "create:milling": [
+    { "method": "crushing", "machine": "crushing_wheels", "preserveRecipeDuration": true }
+  ],
   "minecraft:smelting": [
     { "method": "bulk_blasting", "machine": "encased_fan" }
   ],

@@ -6,18 +6,26 @@
     <meta name="theme-color" content="#101411">
     <title>CreateRate</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="/src/ui.css">
+    <link rel="stylesheet" href="src/ui.css">
   </head>
   <body>
     <main>
-      <button id="reset-plant" class="canvas-reset" type="button">Reset</button>
-      <button id="fit-view" class="canvas-fit" type="button" aria-label="Fit plant to view">Fit</button>
+      <div class="canvas-menu">
+        <button id="menu-toggle" class="canvas-menu-toggle" type="button" aria-label="Open canvas menu" aria-expanded="false" aria-controls="canvas-menu-items">☰</button>
+        <nav id="canvas-menu-items" class="canvas-menu-items" aria-label="Canvas actions" hidden>
+          <button id="fit-view" type="button">Fit view</button>
+          <button id="reset-plant" type="button">Reset</button>
+          <button id="export-full" type="button">Export full</button>
+          <button id="export-graph" type="button">Export graph</button>
+          <button id="import-plant" type="button">Import</button>
+        </nav>
+      </div>
       <svg id="plant-canvas" aria-label="Production plant canvas" role="application">
         <defs>
           <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
             <circle cx="1" cy="1" r="1" fill="#303932"></circle>
           </pattern>
-          <marker id="arrowhead" markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto">
+          <marker id="arrowhead" markerWidth="5" markerHeight="5" refX="5" refY="2.5" orient="auto">
             <path d="M0,0 L5,2.5 L0,5 z" fill="context-stroke"></path>
           </marker>
         </defs>
@@ -35,13 +43,18 @@
         <div id="selection-controls" class="selection-controls"></div>
         <button id="delete-selected" type="button" hidden>Delete</button>
       </aside>
+      <aside id="gesture-help" class="gesture-help" aria-label="Available actions" aria-live="polite"></aside>
+      <aside id="tag-preview" class="tag-preview" popover="manual" aria-hidden="true"></aside>
       <output id="status" class="status" aria-live="polite">Ready</output>
     </main>
     <dialog id="recipe-picker" class="recipe-picker">
       <form method="dialog" class="picker-form">
         <header><strong id="picker-title">Choose a recipe</strong><button value="cancel" aria-label="Close">×</button></header>
         <input id="recipe-search" type="search" placeholder="Search recipes or items" autocomplete="off">
-        <div id="recipe-options" class="recipe-options"></div>
+        <div class="recipe-picker-body">
+          <div id="recipe-options" class="recipe-options"></div>
+          <aside id="recipe-preview" class="recipe-preview"><p>Hover or focus a recipe to preview it.</p></aside>
+        </div>
       </form>
     </dialog>
     <dialog id="item-picker" class="recipe-picker">
@@ -54,6 +67,10 @@
     <dialog id="constraint-editor" class="constraint-editor">
       <form id="constraint-form" class="constraint-form">
         <header><strong id="constraint-title">Configure constraint</strong><button id="constraint-close" type="button" aria-label="Close">×</button></header>
+        <div id="constraint-rate-units" class="constraint-rate-units" hidden>
+          <label id="constraint-amount-label">Amount <select id="constraint-amount-unit"></select><span id="constraint-fluid-unit" hidden>mB</span></label>
+          <label id="constraint-period-label">Per <select id="constraint-period-unit"></select></label>
+        </div>
         <label>Equal to <span class="constraint-input"><input id="constraint-equals" type="number" min="0" step="any"><span id="constraint-unit-equals"></span></span></label>
         <label>Greater than or equal to (GEQ) <span class="constraint-input"><input id="constraint-minimum" type="number" min="0" step="any"><span id="constraint-unit-minimum"></span></span></label>
         <label>Less than or equal to (LEQ) <span class="constraint-input"><input id="constraint-maximum" type="number" min="0" step="any"><span id="constraint-unit-maximum"></span></span></label>
@@ -63,6 +80,6 @@
         <footer><button id="constraint-clear" type="button">Clear</button><span></span><button id="constraint-apply" type="button">Apply</button></footer>
       </form>
     </dialog>
-    <script type="module" src="/build/ui.js"></script>
+    <script type="module" src="build/ui.js"></script>
   </body>
 </html>

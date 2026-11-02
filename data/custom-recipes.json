@@ -1,0 +1,131 @@
+[
+  {
+    "id": "createrate:natural/dripstone_lava",
+    "processKind": "natural",
+    "source": "CreateRate",
+    "method": "natural_generation",
+    "machine": "dripstone_cauldron",
+    "inputs": [],
+    "outputs": [{ "resource": { "type": "fluid", "id": "minecraft:lava" }, "amount": 1000 }],
+    "output": { "type": "fluid", "id": "minecraft:lava" },
+    "outputAmount": 1000
+  },
+  {
+    "id": "createrate:natural/sugar_cane",
+    "processKind": "natural",
+    "source": "CreateRate",
+    "method": "natural_growth",
+    "machine": "sugar_cane_plant",
+    "inputs": [],
+    "outputs": [{ "resource": { "type": "item", "id": "minecraft:sugar_cane" }, "amount": 1 }],
+    "output": { "type": "item", "id": "minecraft:sugar_cane" },
+    "outputAmount": 1
+  },
+  {
+    "id": "createrate:natural/cactus",
+    "processKind": "natural",
+    "source": "CreateRate",
+    "method": "natural_growth",
+    "machine": "cactus_plant",
+    "inputs": [],
+    "outputs": [{ "resource": { "type": "item", "id": "minecraft:cactus" }, "amount": 1 }],
+    "output": { "type": "item", "id": "minecraft:cactus" },
+    "outputAmount": 1
+  },
+  {
+    "id": "createrate:natural/bamboo",
+    "processKind": "natural",
+    "source": "CreateRate",
+    "method": "natural_growth",
+    "machine": "bamboo_plant",
+    "inputs": [],
+    "outputs": [{ "resource": { "type": "item", "id": "minecraft:bamboo" }, "amount": 1 }],
+    "output": { "type": "item", "id": "minecraft:bamboo" },
+    "outputAmount": 1
+  },
+  {
+    "id": "createrate:natural/wheat",
+    "processKind": "natural",
+    "source": "CreateRate",
+    "method": "natural_growth",
+    "machine": "hydrated_crop_plot",
+    "inputs": [{ "type": "item", "id": "minecraft:wheat_seeds", "amount": 1 }],
+    "outputs": [
+      { "resource": { "type": "item", "id": "minecraft:wheat" }, "amount": 1 },
+      { "resource": { "type": "item", "id": "minecraft:wheat_seeds" }, "amount": 1.5 }
+    ],
+    "output": { "type": "item", "id": "minecraft:wheat" },
+    "outputAmount": 1
+  },
+  {
+    "id": "createrate:natural/carrot",
+    "processKind": "natural",
+    "source": "CreateRate",
+    "method": "natural_growth",
+    "machine": "hydrated_crop_plot",
+    "inputs": [{ "type": "item", "id": "minecraft:carrot", "amount": 1 }],
+    "outputs": [{ "resource": { "type": "item", "id": "minecraft:carrot" }, "amount": 2.5 }],
+    "output": { "type": "item", "id": "minecraft:carrot" },
+    "outputAmount": 2.5
+  },
+  {
+    "id": "createrate:natural/potato",
+    "processKind": "natural",
+    "source": "CreateRate",
+    "method": "natural_growth",
+    "machine": "hydrated_crop_plot",
+    "inputs": [{ "type": "item", "id": "minecraft:potato", "amount": 1 }],
+    "outputs": [
+      { "resource": { "type": "item", "id": "minecraft:potato" }, "amount": 2.5 },
+      { "resource": { "type": "item", "id": "minecraft:poisonous_potato" }, "amount": 1, "chance": 0.02 }
+    ],
+    "output": { "type": "item", "id": "minecraft:potato" },
+    "outputAmount": 2.5
+  },
+  {
+    "id": "createrate:natural/cow_milking",
+    "processKind": "natural",
+    "source": "CreateRate",
+    "method": "natural_milking",
+    "machine": "cow",
+    "durationTicks": 20,
+    "inputs": [{ "type": "item", "id": "minecraft:bucket", "amount": 1 }],
+    "outputs": [{ "resource": { "type": "item", "id": "minecraft:milk_bucket" }, "amount": 1 }],
+    "output": { "type": "item", "id": "minecraft:milk_bucket" },
+    "outputAmount": 1
+  },
+  {
+    "id": "createrate:natural/chicken_egg",
+    "processKind": "natural",
+    "source": "CreateRate",
+    "method": "natural_generation",
+    "machine": "chicken",
+    "durationTicks": 9000,
+    "inputs": [],
+    "outputs": [{ "resource": { "type": "item", "id": "minecraft:egg" }, "amount": 1 }],
+    "output": { "type": "item", "id": "minecraft:egg" },
+    "outputAmount": 1
+  },
+  {
+    "id": "createrate:natural/amethyst_shards",
+    "processKind": "natural",
+    "source": "CreateRate",
+    "method": "natural_growth",
+    "machine": "amethyst_growth_face",
+    "inputs": [],
+    "outputs": [{ "resource": { "type": "item", "id": "minecraft:amethyst_shard" }, "amount": 4 }],
+    "output": { "type": "item", "id": "minecraft:amethyst_shard" },
+    "outputAmount": 4
+  },
+  {
+    "id": "createrate:drilling/cobblestone_generator",
+    "source": "CreateRate",
+    "method": "drilling",
+    "machine": "mechanical_drill",
+    "blockHardness": 2,
+    "inputs": [],
+    "outputs": [{ "resource": { "type": "item", "id": "minecraft:cobblestone" }, "amount": 1 }],
+    "output": { "type": "item", "id": "minecraft:cobblestone" },
+    "outputAmount": 1
+  }
+]

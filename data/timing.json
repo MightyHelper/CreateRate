@@ -1,6 +1,34 @@
 {
   "ticksPerSecond": 20,
+  "randomTick": {
+    "blocksPerSection": 4096,
+    "attemptsPerSectionPerTick": 3
+  },
+  "randomTickProcesses": {
+    "dripstone_cauldron": {
+      "successChancePerRandomTick": 0.05859375
+    },
+    "sugar_cane_plant": {
+      "successChancePerRandomTick": 0.0625
+    },
+    "cactus_plant": {
+      "successChancePerRandomTick": 0.0625
+    },
+    "bamboo_plant": {
+      "successChancePerRandomTick": 0.3333333333333333
+    },
+    "hydrated_crop_plot": {
+      "successChancePerRandomTick": 0.3333333333333333,
+      "successfulTicksPerOutput": 7
+    },
+    "amethyst_growth_face": {
+      "successChancePerRandomTick": 0.03333333333333333,
+      "successfulTicksPerOutput": 4
+    }
+  },
   "fixedDurationMachines": {
+    "cow": 1,
+    "chicken": 1,
     "furnace": 1,
     "blast_furnace": 1,
     "smoker": 1,
@@ -33,6 +61,11 @@
     "postApplyTicks": 20,
     "startupTicks": 1,
     "defaultRecipeDurationTicks": 50
+  },
+  "mechanicalDrill": {
+    "speedPerRpm": 0.01,
+    "progressPerBlock": 10,
+    "maximumProgressPerTick": 10
   },
   "mechanicalMixer": {
     "minimumRpm": 32,

@@ -12,13 +12,13 @@ export type PlantAnalyzerDependencies = {
 
 export type PlantIssue = {
   severity: "error";
-  code: "missing-component" | "missing-recipe" | "invalid-port" | "resource-mismatch" | "self-connection" | "invalid-constraint";
+  code: "missing-component" | "missing-recipe" | "invalid-port" | "resource-mismatch" | "invalid-constraint";
   message: string;
 };
 export type PlantInspection = { valid: boolean; issues: PlantIssue[] };
 export type RateValue =
-  | { state: "constrained" | "derived"; perMinute: number }
-  | { state: "underconstrained"; minimum: number; maximum?: number; integer?: boolean; powerOfTwo?: boolean }
+  | { state: "constrained" | "derived"; perMinute: number; surplus?: number }
+  | { state: "underconstrained"; minimum: number; maximum?: number; integer?: boolean; powerOfTwo?: boolean; surplus?: number }
   | { state: "conflict" };
 export type PlantRateAnalysis = {
   status: "balanced" | "underconstrained" | "conflicting" | "invalid";
@@ -37,9 +37,6 @@ export function inspectPlant(plant: Plant, findRecipe: (id: string) => Recipe | 
   }
 
   for (const connection of plant.connections) {
-    if (connection.from.componentId === connection.to.componentId) {
-      issues.push({ severity: "error", code: "self-connection", message: `${connection.id} connects a process to itself` });
-    }
     const from = components.get(connection.from.componentId);
     const to = components.get(connection.to.componentId);
     if (!from || !to) {
@@ -50,7 +47,7 @@ export function inspectPlant(plant: Plant, findRecipe: (id: string) => Recipe | 
       issues.push({ severity: "error", code: "invalid-port", message: `${connection.id} references a port the component does not have` });
       continue;
     }
-    if (resourceKey(connection.from.resource) !== resourceKey(connection.to.resource)) {
+    if (!connectionResourcesMatch(connection, to, findRecipe)) {
       issues.push({ severity: "error", code: "resource-mismatch", message: `${connection.id} connects different resources` });
     }
   }
@@ -67,6 +64,12 @@ export function inspectPlant(plant: Plant, findRecipe: (id: string) => Recipe | 
     if (!component || (constraint.target.kind !== "port-rate" && component.kind !== "process")) {
       issues.push({ severity: "error", code: "invalid-constraint", message: `${constraint.id} targets a missing or incompatible component` });
       continue;
+    }
+    if (component.kind === "process" && constraint.target.kind !== "port-rate") {
+      const recipe = findRecipe(component.recipeId);
+      if (recipe?.processKind === "natural" && ["rpm", "stress", "stack-size"].includes(constraint.target.kind)) {
+        issues.push({ severity: "error", code: "invalid-constraint", message: `${constraint.id} targets a quantity this process does not use` });
+      }
     }
     if (constraint.target.kind === "port-rate" && !portExists(component, constraint.target.port, findRecipe)) {
       issues.push({ severity: "error", code: "invalid-constraint", message: `${constraint.id} targets a port the component does not have` });
@@ -113,6 +116,38 @@ export function inspectPlant(plant: Plant, findRecipe: (id: string) => Recipe | 
 }
 
 export function analyzePlantRates(plant: Plant, dependencies: PlantAnalyzerDependencies): PlantRateAnalysis {
+  const exact = analyzePlantRatesPass(plant, dependencies, new Set());
+  if (exact.status !== "conflicting") return exact;
+
+  // A mismatch on one connection must not loosen every output in the plant.
+  // Only let the producer of a conflicting connection dispose surplus.
+  const surplusPorts = new Set<string>();
+  for (const edge of plant.connections) {
+    if (!exact.issues.some((issue) => issue.includes(`connection:${edge.id} `))) continue;
+    const producer = plant.components.find(({ id }) => id === edge.from.componentId);
+    if (producer?.kind === "process") surplusPorts.add(portRateVariable(edge.from));
+  }
+  if (exact.issues.some((issue) => issue.includes("integer restriction") || issue.includes("power-of-two restriction"))) {
+    for (const constraint of plant.constraints) {
+      if (constraint.kind !== "integer" && constraint.kind !== "power-of-two") continue;
+      if (constraint.target.kind !== "port-rate") continue;
+      const variable = portRateVariable(constraint.target.port);
+      if (!exact.issues.some((issue) => issue.startsWith(`${variable} rate `))) continue;
+      const process = plant.components.find(({ id }) => id === constraint.target.port.componentId);
+      if (process?.kind !== "process") continue;
+      const recipe = dependencies.findRecipe(process.recipeId);
+      for (const output of recipe?.outputs ?? []) {
+        surplusPorts.add(portRateVariable({ componentId: process.id, direction: "output", resource: output.resource }));
+      }
+    }
+  }
+  if (surplusPorts.size === 0) return exact;
+
+  const withSurplus = analyzePlantRatesPass(plant, dependencies, surplusPorts);
+  return withSurplus.status === "conflicting" ? exact : withSurplus;
+}
+
+function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependencies, surplusPorts: Set<string>): PlantRateAnalysis {
   const { findRecipe, requiredOperatingConditions, calculateTiming, stressImpactPerMachine } = dependencies;
   const inspection = inspectPlant(plant, findRecipe);
   if (!inspection.valid) {
@@ -127,6 +162,7 @@ export function analyzePlantRates(plant: Plant, dependencies: PlantAnalyzerDepen
   const equations: RateEquation[] = [];
   const variables = new Set<string>();
   const portRefs = new Map<string, PortRef>();
+  const surplusVariables = new Map<string, string>();
   const connectionVariables = new Map<string, string>();
   const registerPort = (port: PortRef) => {
     const key = portRateVariable(port);
@@ -160,6 +196,12 @@ export function analyzePlantRates(plant: Plant, dependencies: PlantAnalyzerDepen
       registerPort({ componentId: component.id, direction: "input", resource: component.resource });
       continue;
     }
+    if (component.kind === "pool") {
+      const input = registerPort({ componentId: component.id, direction: "input", resource: component.resource });
+      const output = registerPort({ componentId: component.id, direction: "output", resource: component.resource });
+      equation([[input, 1], [output, -1]], `${component.id} pool balance`);
+      continue;
+    }
 
     const recipe = findRecipe(component.recipeId);
     if (!recipe) continue;
@@ -181,10 +223,9 @@ export function analyzePlantRates(plant: Plant, dependencies: PlantAnalyzerDepen
       outputs.set(key, { resource: output.resource, amount: (current?.amount ?? 0) + amount });
     }
     for (const output of outputs.values()) {
-      const ports = connectedPorts(plant, component.id, "output", output.resource);
-      const refs = ports.length > 0 ? ports : [{ componentId: component.id, direction: "output" as const, resource: output.resource }];
+      const port = { componentId: component.id, direction: "output" as const, resource: output.resource };
       equation([
-        ...refs.map((port) => [registerPort(port), 1] as [string, number]),
+        [registerPort(port), 1],
         [runVariable, -output.amount],
       ], `${component.id} output ratio`);
     }
@@ -197,7 +238,14 @@ export function analyzePlantRates(plant: Plant, dependencies: PlantAnalyzerDepen
         ? samePort(connection.from, port)
         : samePort(connection.to, port))
       .map((connection) => [connectionVariables.get(connection.id)!, -1] as [string, number]);
-    equation([[portVariable, 1], ...connected], `${port.componentId} port balance`);
+    const component = plant.components.find(({ id }) => id === port.componentId);
+    if (component?.kind === "process" && port.direction === "output" && surplusPorts.has(portVariable)) {
+      const surplusVariable = `surplus:${portVariable}`;
+      surplusVariables.set(portVariable, surplusVariable);
+      connected.push([surplusVariable, -1]);
+    }
+    equation([[portVariable, 1], ...connected],
+      `${port.componentId} ${port.direction} ${resourceKey(port.resource)} port balance ${connected.map(([variable]) => variable).join(" ")}`);
   }
 
   const known = new Map<string, { value: number; state: "constrained" | "derived" }>();
@@ -421,7 +469,15 @@ export function analyzePlantRates(plant: Plant, dependencies: PlantAnalyzerDepen
   };
 
   const connectionRates = plant.connections.map(({ id }) => ({ connectionId: id, rate: rateValue(connectionVariables.get(id)!) }));
-  const portRates = [...portRefs].map(([variable, port]) => ({ port, rate: rateValue(variable) }));
+  const portRates = [...portRefs].map(([variable, port]) => {
+    const rate = rateValue(variable);
+    const surplusVariable = surplusVariables.get(variable);
+    if (!surplusVariable) return { port, rate };
+    const surplus = rateValue(surplusVariable);
+    const amount = surplus.state === "constrained" || surplus.state === "derived" ? surplus.perMinute
+      : surplus.state === "underconstrained" && surplus.minimum > 0 ? surplus.minimum : undefined;
+    return { port, rate: amount === undefined || rate.state === "conflict" ? rate : { ...rate, surplus: amount } };
+  });
   const unresolved = [...connectionRates, ...portRates].some(({ rate }) => rate.state === "underconstrained");
   return {
     status: issues.length > 0 ? "conflicting" : unresolved ? "underconstrained" : "balanced",
@@ -446,6 +502,7 @@ function collectPlantPorts(plant: Plant): Array<{ port: PortRef; rate: RateValue
 function portExists(component: PlantComponent, port: PortRef, findRecipe: (id: string) => Recipe | undefined): boolean {
   if (component.kind === "supply") return port.direction === "output" && sameResource(component.resource, port.resource);
   if (component.kind === "demand") return port.direction === "input" && sameResource(component.resource, port.resource);
+  if (component.kind === "pool") return sameResource(component.resource, port.resource);
   const recipe = findRecipe(component.recipeId);
   if (!recipe) return false;
   if (port.direction === "input") {
@@ -453,6 +510,14 @@ function portExists(component: PlantComponent, port: PortRef, findRecipe: (id: s
       (input.type === port.resource.type && input.alternatives?.includes(port.resource.id)));
   }
   return recipe.outputs.some((output) => sameResource(output.resource, port.resource));
+}
+
+function connectionResourcesMatch(connection: PlantConnection, target: PlantComponent, findRecipe: (id: string) => Recipe | undefined): boolean {
+  if (resourceKey(connection.from.resource) === resourceKey(connection.to.resource)) return true;
+  if (target.kind !== "process" || connection.from.resource.type !== connection.to.resource.type) return false;
+  const recipe = findRecipe(target.recipeId);
+  return recipe?.inputs.some((input) =>
+    resourceKey(input) === resourceKey(connection.to.resource) && input.alternatives?.includes(connection.from.resource.id)) ?? false;
 }
 
 function sameResource(a: Resource, b: Resource): boolean {
