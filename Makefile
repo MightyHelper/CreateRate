@@ -1,6 +1,6 @@
 .PHONY: help build pages
 
-ESBUILD ?= npx --yes --quiet esbuild
+ESBUILD ?= npx --yes --quiet esbuild@0.28.2
 
 help:
 	@printf '%s\n' \

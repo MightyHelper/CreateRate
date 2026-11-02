@@ -3,6 +3,7 @@ import { resourceKey } from "../plant.ts";
 import { constraintTargetsFor, machineLayoutForRecipe, perMinuteToDisplayRate, plantProcessMetrics, plantQuantityState, rateDisplayUnit, recipeOutputPorts } from "../core/index.ts";
 import type { MachineLayout } from "../core/index.ts";
 import type { RateDisplayUnits } from "../core/index.ts";
+import { choiceTagId } from "../recipe-choices.ts";
 import type { Ingredient, MachineLayoutRules, MachineModel, MachineModelElement, Recipe, TextureAnimation } from "../recipes.ts";
 import type { PlantRateAnalysis, RateValue } from "../plant-analysis.ts";
 import { rasterizeModel } from "./model-raster.ts";
@@ -206,7 +207,7 @@ function processNodeMarkup(component: Extract<PlantComponent, { kind: "process" 
     const rate = rateForPort(state.rateAnalysis, target), targetData = esc(JSON.stringify(target));
     const row = portTop + index * 44;
     const inputIcon = resourceIconMarkup(input, state, "process-port-icon", 10, row - 8, 16) ?? "";
-    markup.push(`<circle class="port-dot ${isPendingPortTarget(state, component.id, "input", input) ? "link-active" : ""}" cx="0" cy="${row}" r="5"/><rect class="port-hit" data-port="input" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(input))}" ${tagAttributes(input)} x="-15" y="${row - 10}" width="160" height="20"/>${inputIcon}<text class="port-label" x="${inputIcon ? 31 : 12}" y="${row + 4}">${esc(fitLabel(input.id))} · ${input.amount}</text><rect class="rate-hit" data-constraint-target="${targetData}" x="8" y="${row + 11}" width="140" height="22" rx="5"/><text class="port-rate ${rateClass(rate)}" data-constraint-target="${targetData}" x="12" y="${row + 27}">${esc(rateText(rate, input, state.rateDisplayUnits))}</text>`);
+    markup.push(`<circle class="port-dot ${isPendingPortTarget(state, component.id, "input", input) ? "link-active" : ""}" cx="0" cy="${row}" r="5"/><rect class="port-hit" data-port="input" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(input))}" ${tagAttributes(input)} x="-15" y="${row - 10}" width="160" height="20"/>${inputIcon}<text class="port-label" x="${inputIcon ? 31 : 12}" y="${row + 4}">${esc(resourceLabel(input))} · ${input.amount}</text><rect class="rate-hit" data-constraint-target="${targetData}" x="8" y="${row + 11}" width="140" height="22" rx="5"/><text class="port-rate ${rateClass(rate)}" data-constraint-target="${targetData}" x="12" y="${row + 27}">${esc(rateText(rate, input, state.rateDisplayUnits))}</text>`);
   });
   outs.forEach((output, index) => {
     const target: PlantQuantityRef = { kind: "port-rate", port: { componentId: component.id, direction: "output", resource: output.resource } };
@@ -440,14 +441,15 @@ function rateText(rate: RateValue | undefined, resource: Resource, units: RateDi
 }
 function resourceIconMarkup(resource: Pick<Ingredient, "type" | "id" | "alternatives">, state: CanvasState, className: string, x: number, y: number, size: number): string | undefined {
   const alternatives = resource.alternatives ?? [];
-  const tagName = resource.id.startsWith("#") ? resource.id.split(":").at(-1) : undefined;
+  const tagId = resource.id.startsWith("#") ? resource.id : alternatives.length > 1 ? choiceTagId(alternatives) : undefined;
+  const tagName = tagId?.split(":").at(-1);
   const preferred = tagName && alternatives.find((id) => id.split(":").at(-1) === tagName);
   const ids = [...new Set([resource.id, ...(preferred ? [preferred] : []), ...alternatives])];
   const keys = ids.flatMap((id) => resource.type === "fluid" ? [`${id}_still`, id, `${id}_bucket`] : [id]);
   const available = [...new Set(keys.filter((candidate) => state.itemIcons[candidate] || state.itemModelIds[candidate]))];
   if (!available.length) return undefined;
   const members = [...new Set(alternatives)];
-  if (!resource.id.startsWith("#") || members.length < 2) return resourceIconKeyMarkup(available[0], state, className, x, y, size);
+  if (!tagId || members.length < 2) return resourceIconKeyMarkup(available[0], state, className, x, y, size);
   const memberKeys = members.map((id) => {
     const memberCandidates = resource.type === "fluid" ? [`${id}_still`, id, `${id}_bucket`] : [id];
     return memberCandidates.find((candidate) => state.itemIcons[candidate] || state.itemModelIds[candidate]);
@@ -455,7 +457,7 @@ function resourceIconMarkup(resource: Pick<Ingredient, "type" | "id" | "alternat
   if (!memberKeys.length) return undefined;
   const interval = 0.5;
   const duration = memberKeys.length * interval;
-  return `<svg class="${className} tag-cycle-icon" data-tag-id="${esc(resource.id)}" data-tag-type="${resource.type}" data-tag-alternatives="${esc(JSON.stringify(members))}" x="${x}" y="${y}" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" preserveAspectRatio="xMidYMid meet">${memberKeys.map((key, index) => `<g opacity="0"><animate attributeName="opacity" values="1;0;0" keyTimes="0;${1 / memberKeys.length};1" dur="${duration}s" begin="${index * interval}s" calcMode="discrete" repeatCount="indefinite"/><g>${resourceIconKeyMarkup(key, state, "tag-cycle-member", 0, 0, size)}</g></g>`).join("")}</svg>`;
+  return `<svg class="${className} tag-cycle-icon" data-tag-id="${esc(tagId)}" data-tag-type="${resource.type}" data-tag-alternatives="${esc(JSON.stringify(members))}" x="${x}" y="${y}" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" preserveAspectRatio="xMidYMid meet">${memberKeys.map((key, index) => `<g opacity="0"><animate attributeName="opacity" values="1;0;0" keyTimes="0;${1 / memberKeys.length};1" dur="${duration}s" begin="${index * interval}s" calcMode="discrete" repeatCount="indefinite"/><g>${resourceIconKeyMarkup(key, state, "tag-cycle-member", 0, 0, size)}</g></g>`).join("")}</svg>`;
 }
 
 function resourceIconKeyMarkup(key: string, state: CanvasState, className: string, x: number, y: number, size: number): string {
@@ -489,8 +491,9 @@ function resourceTextureKeyMarkup(key: string, state: CanvasState, className: st
 }
 
 export function tagAttributes(resource: Pick<Ingredient, "type" | "id" | "alternatives">): string {
-  return resource.id.startsWith("#") && resource.alternatives?.length
-    ? `data-tag-id="${esc(resource.id)}" data-tag-type="${resource.type}" data-tag-alternatives="${esc(JSON.stringify(resource.alternatives))}"`
+  const tagId = resource.id.startsWith("#") ? resource.id : resource.alternatives && resource.alternatives.length > 1 ? choiceTagId(resource.alternatives) : undefined;
+  return tagId && resource.alternatives?.length
+    ? `data-tag-id="${esc(tagId)}" data-tag-type="${resource.type}" data-tag-alternatives="${esc(JSON.stringify(resource.alternatives))}"`
     : "";
 }
 
@@ -770,5 +773,13 @@ function wrapProcessTitle(title: string): string[] {
   return lines.length ? lines : [title];
 }
 function fitLabel(id: string, maxLength = 19): string { const label = short(id); return label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label; }
+function resourceLabel(resource: Pick<Ingredient, "id" | "alternatives">): string {
+  if (resource.id.startsWith("#")) return fitLabel(resource.id);
+  if (resource.alternatives && resource.alternatives.length > 1) {
+    const tagId = choiceTagId(resource.alternatives);
+    if (tagId.endsWith(":nuggets")) return fitLabel(tagId);
+  }
+  return fitLabel(resource.id);
+}
 function icon(id: string): string { return short(id).split(/[- _]/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(); }
 function esc(value: string): string { return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!); }

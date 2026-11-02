@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { choiceTagId, listChoiceTags } from "./recipe-choices.ts";
 
 export type Ingredient = {
   type: "item" | "fluid";
@@ -147,7 +148,7 @@ export function listRecipes(): Recipe[] {
 }
 
 export function listResourceTags(): { itemTags: Record<string, string[]>; fluidTags: Record<string, string[]> } {
-  return { itemTags: exported.itemTags ?? {}, fluidTags: exported.fluidTags ?? {} };
+  return { itemTags: { ...(exported.itemTags ?? {}), ...listChoiceTags() }, fluidTags: exported.fluidTags ?? {} };
 }
 
 export function listItemIcons(): Record<string, string> {
@@ -283,7 +284,9 @@ function parseResource(value: unknown): Omit<Ingredient, "amount"> | undefined {
     });
     const alternatives = [...new Set(choices)];
     if (alternatives.length === 0) return undefined;
-    return { type: "item", id: alternatives.join(" or "), alternatives };
+    const id = alternatives.join(" or ");
+    choiceTagId(alternatives);
+    return { type: "item", id, alternatives };
   }
   if (typeof value === "string") return { type: "item", id: value };
   if (!value || typeof value !== "object") return undefined;
