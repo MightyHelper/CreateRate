@@ -429,7 +429,9 @@ function deleteSelection() {
   }
   const ids = selectedIds.size ? [...selectedIds] : selected ? [selected] : [];
   const previousPositions = { ...positions };
-  const result = deletePlantSelection(plant, ids, nextId);
+  let result: ReturnType<typeof deletePlantSelection>;
+  try { result = deletePlantSelection(plant, ids, nextId); }
+  catch (error) { setStatus(error instanceof Error ? error.message : "Could not delete selection"); return; }
   plant = result.plant;
   for (const id of result.removedComponentIds) { delete positions[id]; delete portOrder[id]; selectedIds.delete(id); }
   for (const { id, result: process } of result.processes) {

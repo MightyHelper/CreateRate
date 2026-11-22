@@ -292,7 +292,13 @@ export function deletePlantProcess(plant: Plant, processId: string, createId: (p
   const outgoing = plant.connections.filter((edge) => edge.from.componentId === processId &&
     plant.components.some((component) => component.id === edge.to.componentId && (component.kind === "process" || component.kind === "pool")));
   const materials = new Map<string, Resource>();
-  for (const edge of incoming) materials.set(resourceKey(edge.to.resource), edge.to.resource);
+  for (const edge of incoming) materials.set(resourceKey(edge.from.resource), edge.from.resource);
+  for (const constraint of inputConstraints) {
+    if (constraint.target.kind !== "port-rate") continue;
+    const targetKey = resourceKey(constraint.target.port.resource);
+    const sources = new Set(incoming.filter((edge) => resourceKey(edge.to.resource) === targetKey).map((edge) => resourceKey(edge.from.resource)));
+    if (sources.size > 1) throw new Error("Cannot preserve an input constraint when deleting a process with multiple alternative resources");
+  }
 
   let next = plant;
   const createdInputs: PlantComponent[] = [];
@@ -305,8 +311,8 @@ export function deletePlantProcess(plant: Plant, processId: string, createId: (p
     demandByResource.set(resourceKey(resource), id);
   }
   for (const edge of incoming) {
-    const demandId = demandByResource.get(resourceKey(edge.to.resource));
-    if (demandId) next = redirectPlantConnectionTarget(next, edge.id, { componentId: demandId, direction: "input", resource: edge.to.resource });
+    const demandId = demandByResource.get(resourceKey(edge.from.resource));
+    if (demandId) next = redirectPlantConnectionTarget(next, edge.id, { componentId: demandId, direction: "input", resource: edge.from.resource });
   }
 
   const createdOutputs: PlantComponent[] = [];
@@ -341,9 +347,10 @@ export function deletePlantProcess(plant: Plant, processId: string, createId: (p
   }
   for (const constraint of inputConstraints) {
     if (constraint.target.kind !== "port-rate") continue;
-    const demandId = demandByResource.get(resourceKey(constraint.target.port.resource));
+    const edge = incoming.find((candidate) => resourceKey(candidate.to.resource) === resourceKey(constraint.target.port.resource));
+    const demandId = edge && demandByResource.get(resourceKey(edge.from.resource));
     if (!demandId) continue;
-    next = addPlantConstraint(next, { ...constraint, target: { kind: "port-rate", port: { ...constraint.target.port, componentId: demandId, direction: "input" } } });
+    next = addPlantConstraint(next, { ...constraint, target: { kind: "port-rate", port: { ...constraint.target.port, componentId: demandId, direction: "input", resource: edge.from.resource } } });
   }
   for (const constraint of outputConstraints) {
     if (constraint.target.kind !== "port-rate") continue;

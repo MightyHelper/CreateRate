@@ -32,3 +32,15 @@ const chained: Plant = { id: "chain", components: [
 const chainResult = deletePlantSelection(chained, ["downstream"], createId);
 assert.equal(chainResult.plant.connections[0].from.componentId, "upstream");
 assert.ok(chainResult.plant.components.some((component) => component.kind === "demand" && component.id === chainResult.plant.connections[0].to.componentId));
+
+const choice = { type: "item" as const, id: "#forge:ingots" };
+const alternative: Plant = { ...chained, connections: [{ ...chained.connections[0], to: { componentId: "downstream", direction: "input", resource: choice } }], constraints: [
+  { id: "limit", kind: "bound", relation: "equals", value: 5, target: { kind: "port-rate", port: { componentId: "downstream", direction: "input", resource: choice } } },
+] };
+const alternativeResult = deletePlantSelection(alternative, ["downstream"], createId);
+const redirected = alternativeResult.plant.connections[0];
+assert.deepEqual(redirected.to.resource, resource);
+assert.ok(alternativeResult.plant.constraints.some((constraint) => constraint.id === "limit" && constraint.target.kind === "port-rate" && constraint.target.port.componentId === redirected.to.componentId && constraint.target.port.resource.id === resource.id));
+const gold = { type: "item" as const, id: "minecraft:gold_ingot" };
+const multiple: Plant = { ...alternative, components: [...alternative.components, { id: "other", kind: "process", recipeId: "other" }], connections: [...alternative.connections, { id: "gold", from: { componentId: "other", direction: "output", resource: gold }, to: { componentId: "downstream", direction: "input", resource: choice } }] };
+assert.throws(() => deletePlantSelection(multiple, ["downstream"], createId), /multiple alternative resources/);
