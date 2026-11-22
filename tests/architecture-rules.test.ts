@@ -165,3 +165,9 @@ assert.equal(analyzePowerStress(minimumStress(3)).status, "conflicting");
 assert.notEqual(analyzePowerStress(minimumStress(2)).status, "conflicting");
 const powerGap: Plant = { ...powerStress, constraints: [...powerStress.constraints, { id: "machines-min", kind: "bound", relation: "at-least", value: 3, target: { kind: "machine-count", componentId: "stress-process" } }] };
 assert.equal(analyzePowerStress(powerGap).status, "conflicting");
+
+const analyzeNeedsStack = (plant: Plant) => analyzePlantRates(plant, { findRecipe: () => stressRecipe, requiredOperatingConditions: () => ["rpm", "stackSize"], stressImpactPerMachine: () => 1, calculateTiming: () => { throw new Error("stack size is absent"); } });
+assert.equal(analyzeNeedsStack(minimumStress(3)).status, "conflicting");
+assert.notEqual(analyzeNeedsStack(minimumStress(2)).status, "conflicting");
+const noRpm: Plant = { ...minimumStress(3), constraints: minimumStress(3).constraints.filter(({ id }) => id !== "rpm") };
+assert.notEqual(analyzeNeedsStack(noRpm).status, "conflicting");

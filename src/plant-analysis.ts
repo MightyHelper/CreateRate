@@ -249,7 +249,6 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     const rpm = exactConstraintValue(plant, { kind: "rpm", componentId: component.id });
     const stackSize = exactConstraintValue(plant, { kind: "stack-size", componentId: component.id });
     if (conditions.includes("rpm") && rpm === undefined) continue;
-    if (conditions.includes("stackSize") && stackSize === undefined) continue;
     let machineCount = upperBoundFor(plant, { kind: "machine-count", componentId: component.id });
     const countPowerOfTwo = plant.constraints.some((constraint) => constraint.kind === "power-of-two" &&
       constraint.target.kind === "machine-count" && constraint.target.componentId === component.id);
@@ -290,7 +289,7 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
       try { validateConstraintSet(undefined, minimumCount, machineCount, true, countPowerOfTwo); }
       catch { addIssue(issues, `${component.id} stress and machine-count constraints disagree`); }
     }
-    if (machineCount === undefined) continue;
+    if (machineCount === undefined || (conditions.includes("stackSize") && stackSize === undefined)) continue;
     if (countPowerOfTwo) machineCount = machineCount < 1 ? 0 : 2 ** Math.floor(Math.log2(machineCount));
     try {
       const timing = calculateTiming(recipe, rpm ?? 0, stackSize ?? 1);
