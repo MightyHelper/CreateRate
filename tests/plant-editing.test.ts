@@ -59,7 +59,7 @@ for (const kind of ["supply", "demand"] as const) {
   const constraints: Plant["constraints"] = connections.map(({ id }) => ({ id: `constraint-${id}`, kind: "bound", relation: "at-most", value: 10, target: { kind: "connection-rate", connectionId: id } }));
   constraints.push({ id: "port-constraint", kind: "bound", relation: "at-most", value: 20, target: { kind: "port-rate", port: port("junction", kind === "supply" ? "output" : "input") } });
   const graph: Plant = { id: kind, components: [junction, ...ends], connections, constraints };
-  const expanded = expandPlantBoundary(graph, "junction", { id: "recipe", inputs: [{ ...resource, amount: 1 }], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] } as never, { createId, resourcesMatch: (a, b) => a.type === b.type && a.id === b.id });
+  const expanded = expandPlantBoundary(graph, "junction", { id: "recipe", inputs: [{ ...resource, amount: 1 }], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] } as never, { createId, resourcesMatch: (a, b) => a.type === b.type && a.id === b.id, findRecipe: () => ({ inputs: [{ ...resource, amount: 1 }] } as never) });
   for (const edge of connections) {
     const kept = expanded.plant.connections.find(({ id }) => id === edge.id);
     assert.ok(kept);
@@ -128,7 +128,7 @@ const inputA = { type: "item" as const, id: "#a", alternatives: [resource.id], a
 const inputB = { type: "item" as const, id: "#b", alternatives: [resource.id, gold.id], amount: 1 };
 const recipeWithOverlap = { id: "overlap", inputs: [inputA, inputB], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] };
 const goldSource: Plant = { id: "source", components: [{ id: "gold-source", kind: "supply", resource: gold }], connections: [], constraints: [] };
-const matchDependencies = { createId, resourcesMatch: (a: typeof resource, b: typeof resource) => resourcesMatch(a, b, {}, {}) };
+const matchDependencies = { createId, resourcesMatch: (a: typeof resource, b: typeof resource) => resourcesMatch(a, b, {}, {}), findRecipe: (id: string) => ({ inputs: [{ ...(id === "downstream" ? ironOnly : tagged), amount: 1 }] } as never) };
 const insertedAtPort = addPlantRecipeAtPort(goldSource, recipeWithOverlap as never, { componentId: "gold-source", direction: "output", resource: gold }, matchDependencies);
 const insertedAtSource = addPlantRecipeAtBoundary(goldSource, "gold-source", recipeWithOverlap as never, matchDependencies);
 for (const result of [insertedAtPort, insertedAtSource]) {
@@ -151,11 +151,11 @@ const { addPlantBoundaryAtPort, canAttachPlantResource } = await import("../src/
 const tagged = { type: "item" as const, id: "#metal", alternatives: [resource.id] };
 const taggedSource: Plant = { id: "tagged", components: [{ id: "tagged-source", kind: "supply", resource: tagged }], connections: [], constraints: [] };
 const taggedOutput = { componentId: "tagged-source", direction: "output" as const, resource: tagged };
-assert.equal(canAttachPlantResource(taggedSource, resource, taggedOutput, matchDependencies.resourcesMatch), false);
+assert.equal(canAttachPlantResource(taggedSource, resource, taggedOutput, matchDependencies.findRecipe), false);
 assert.throws(() => addPlantBoundaryAtPort(taggedSource, "demand", resource, taggedOutput, matchDependencies), /Choose an item/);
 const processGraph: Plant = { id: "process", components: [{ id: "process", kind: "process", recipeId: "r" }], connections: [], constraints: [] };
 const processChoice = { componentId: "process", direction: "input" as const, resource: tagged };
-assert.equal(canAttachPlantResource(processGraph, resource, processChoice, matchDependencies.resourcesMatch), true);
+assert.equal(canAttachPlantResource(processGraph, resource, processChoice, matchDependencies.findRecipe), true);
 assert.equal(addPlantBoundaryAtPort(processGraph, "supply", resource, processChoice, matchDependencies).plant.connections.length, 1);
 
 const selfLoop: Plant = { id: "loop", components: [{ id: "loop-process", kind: "process", recipeId: "r" }], connections: [{ id: "loop-edge", from: port("loop-process", "output"), to: port("loop-process", "input") }], constraints: [{ id: "loop-rate", kind: "bound", relation: "equals", value: 5, target: { kind: "connection-rate", connectionId: "loop-edge" } }] };
@@ -190,7 +190,7 @@ const broadSource = { id: "broad-source", kind: "supply" as const, resource: { t
 const ironOnly = { type: "item" as const, id: "#iron-only", alternatives: [resource.id] };
 const restrictedGraph: Plant = { id: "restricted", components: [broadSource, { id: "downstream", kind: "process", recipeId: "downstream" }], connections: [{ id: "restricted-flow", from: { componentId: broadSource.id, direction: "output", resource: broadSource.resource }, to: { componentId: "downstream", direction: "input", resource: ironOnly } }], constraints: [] };
 const goldRecipe = { ...ironRecipe, id: "gold", output: gold, outputs: [{ resource: gold, amount: 1 }] };
-const canProduceForExistingFlows = (candidate: typeof resource) => matchDependencies.resourcesMatch(candidate, broadSource.resource) && restrictedGraph.connections.every((edge) => canAttachPlantResource(restrictedGraph, candidate, edge.to, matchDependencies.resourcesMatch));
+const canProduceForExistingFlows = (candidate: typeof resource) => matchDependencies.resourcesMatch(candidate, broadSource.resource) && restrictedGraph.connections.every((edge) => canAttachPlantResource(restrictedGraph, candidate, edge.to, matchDependencies.findRecipe));
 assert.equal(recipesForPlantBoundary([ironRecipe as never, goldRecipe as never], broadSource, matchDependencies.resourcesMatch, "produce", canProduceForExistingFlows).length, 1);
 assert.throws(() => expandPlantBoundary(restrictedGraph, broadSource.id, goldRecipe as never, matchDependencies), /does not match/);
 assert.ok(expandPlantBoundary(restrictedGraph, broadSource.id, ironRecipe as never, matchDependencies).plant.connections.some(({ id }) => id === "restricted-flow"));

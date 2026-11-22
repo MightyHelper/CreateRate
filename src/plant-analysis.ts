@@ -1,4 +1,4 @@
-import { ingredientAccepts, ingredientForPort, recipeOutputPorts } from "./recipe-queries.ts";
+import { ingredientAccepts, ingredientConnectionAccepts, ingredientForPort, recipeOutputPorts } from "./recipe-queries.ts";
 import { validateConstraintSet } from "./core/constraint-validation.ts";
 import { resourceKey } from "./plant.ts";
 import type { Plant, PlantComponent, PlantConnection, PlantConstraint, PlantQuantityRef, PortRef, Resource } from "./plant.ts";
@@ -516,9 +516,7 @@ function connectionResourcesMatch(connection: PlantConnection, target: PlantComp
   if (target.kind !== "process" || connection.from.resource.type !== connection.to.resource.type) return false;
   const recipe = findRecipe(target.recipeId);
   if (!recipe) return false;
-  const input = ingredientForPort(recipe.inputs, connection.to.resource);
-  return !!input && ingredientAccepts(input, connection.from.resource) &&
-    (resourceKey(input) === resourceKey(connection.to.resource) || ingredientAccepts(connection.to.resource, connection.from.resource));
+  return ingredientConnectionAccepts(recipe.inputs, connection.to.resource, connection.from.resource);
 }
 
 function sameResource(a: Resource, b: Resource): boolean {

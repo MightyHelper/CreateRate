@@ -33,7 +33,7 @@ const inputChoice = { type: "item" as const, id: "#input", alternatives: ["iron"
 const choicePlant = { id: "choice", components: [{ id: "s", kind: "supply" as const, resource: sourceChoice }], connections: [], constraints: [] };
 const choiceRecipe = { id: "choice-recipe", inputs: [inputChoice], output, outputAmount: 1, outputs: [{ resource: output, amount: 1 }] };
 let nextId = 0;
-const choiceResult = addPlantRecipeAtPort(choicePlant, choiceRecipe as never, { componentId: "s", direction: "output", resource: sourceChoice }, { createId: (prefix) => `${prefix}-${nextId++}`, resourcesMatch: (a, b) => resourcesMatch(a, b, {}, {}) });
+const choiceResult = addPlantRecipeAtPort(choicePlant, choiceRecipe as never, { componentId: "s", direction: "output", resource: sourceChoice }, { createId: (prefix) => `${prefix}-${nextId++}`, resourcesMatch: (a, b) => resourcesMatch(a, b, {}, {}), findRecipe: () => undefined });
 assert.equal(inspectPlant(choiceResult.plant, () => choiceRecipe as never).valid, true);
 assert.equal(ingredientAccepts(inputChoice, { type: "item", id: "#other", alternatives: ["gold"] }), false);
 
@@ -43,9 +43,19 @@ const gold = { type: "item" as const, id: "gold" };
 const targetRecipe = { id: "target", inputs: [{ type: "item" as const, id: "#input", alternatives: ["iron", "gold"], amount: 1 }], output: iron, outputAmount: 1, outputs: [{ resource: iron, amount: 1 }] };
 const sourceRecipe = { id: "source", inputs: [], output: taggedOutput, outputAmount: 1, outputs: [{ resource: taggedOutput, amount: 1 }] };
 const targetPlant = { id: "target-plant", components: [{ id: "target", kind: "process" as const, recipeId: "target" }], connections: [], constraints: [] };
-const inserted = addPlantRecipeAtPort(targetPlant, sourceRecipe as never, { componentId: "target", direction: "input", resource: iron }, { createId: (prefix) => `${prefix}-${nextId++}`, resourcesMatch: (a, b) => resourcesMatch(a, b, {}, {}) });
+const inserted = addPlantRecipeAtPort(targetPlant, sourceRecipe as never, { componentId: "target", direction: "input", resource: iron }, { createId: (prefix) => `${prefix}-${nextId++}`, resourcesMatch: (a, b) => resourcesMatch(a, b, {}, {}), findRecipe: () => targetRecipe as never });
 const lookup = (id: string) => (id === "target" ? targetRecipe : sourceRecipe) as never;
 assert.equal(inspectPlant(inserted.plant, lookup).valid, true);
 const wrongSourceRecipe = { ...sourceRecipe, output: gold, outputs: [{ resource: gold, amount: 1 }] };
 const invalidPlant = { ...inserted.plant, connections: inserted.plant.connections.map((edge) => edge.to.componentId === "target" ? { ...edge, from: { ...edge.from, resource: gold } } : edge) };
 assert.ok(inspectPlant(invalidPlant, (id) => (id === "target" ? targetRecipe : wrongSourceRecipe) as never).issues.some(({ code }) => code === "resource-mismatch"));
+
+const broadPort = { type: "item" as const, id: "#both", alternatives: ["iron", "gold"] };
+const ironOnlyRecipe = { ...targetRecipe, inputs: [{ type: "item" as const, id: "#iron-only", alternatives: ["iron"], amount: 1 }] };
+const goldRecipe = { ...sourceRecipe, output: gold, outputs: [{ resource: gold, amount: 1 }] };
+const ironRecipe = { ...sourceRecipe, output: iron, outputs: [{ resource: iron, amount: 1 }] };
+const targetPort = { componentId: "target", direction: "input" as const, resource: broadPort };
+const recipeAwareDependencies = { createId: (prefix: string) => `${prefix}-${nextId++}`, resourcesMatch: (a: typeof iron, b: typeof iron) => resourcesMatch(a, b, {}, {}), findRecipe: () => ironOnlyRecipe as never };
+assert.throws(() => addPlantRecipeAtPort(targetPlant, goldRecipe as never, targetPort, recipeAwareDependencies), /does not match/);
+const validInsertion = addPlantRecipeAtPort(targetPlant, ironRecipe as never, targetPort, recipeAwareDependencies);
+assert.equal(inspectPlant(validInsertion.plant, (id) => (id === "target" ? ironOnlyRecipe : ironRecipe) as never).valid, true);

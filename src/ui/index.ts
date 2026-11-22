@@ -285,6 +285,7 @@ function addRecipe(recipe: Recipe) {
     ? addPlantRecipeAtPort(plant, recipe, pending, {
       createId: nextId,
       resourcesMatch: (a, b) => resourcesMatch(a, b, itemTags, fluidTags),
+      findRecipe: (id) => recipesById.get(id),
     })
     : addPlantRecipe(plant, recipe, nextId);
   plant = result.plant;
@@ -303,14 +304,14 @@ function expandBoundary(component: Extract<PlantComponent, { kind: "supply" | "d
   const outputMatches = (resource: Resource) => component.kind === "demand"
     ? resourceKey(resource) === resourceKey(component.resource)
     : matchResource(resource, component.resource) && plant.connections.filter((edge) => edge.from.componentId === component.id)
-      .every((edge) => canAttachPlantResource(plant, resource, edge.to, matchResource));
+      .every((edge) => canAttachPlantResource(plant, resource, edge.to, (id) => recipesById.get(id)));
   const matchingRecipes = recipesForPlantBoundary(recipes, component, matchResource, action, outputMatches);
   const title = `${action[0].toUpperCase()}${action.slice(1)} ${short(component.resource.id)}`;
   pickers.openRecipePicker(title, matchingRecipes, (recipe) => {
     const oldPosition = positions[component.id] ?? { x: 0, y: 0 };
     const result = ctrlKey
       ? addPlantRecipeAtBoundary(plant, component.id, recipe, { createId: nextId, resourcesMatch: matchResource })
-      : expandPlantBoundary(plant, component.id, recipe, { createId: nextId, resourcesMatch: matchResource });
+      : expandPlantBoundary(plant, component.id, recipe, { createId: nextId, resourcesMatch: matchResource, findRecipe: (id) => recipesById.get(id) });
     plant = result.plant;
     for (const id of "removedComponentIds" in result ? result.removedComponentIds : []) delete positions[id];
     const position = { x: oldPosition.x + (component.kind === "supply" ? (ctrlKey ? 260 : -260) : (ctrlKey ? -260 : 260)), y: oldPosition.y };
@@ -721,7 +722,7 @@ function handleBackgroundTap(point: Point, shiftKey: boolean) {
 function openBackgroundPicker(itemPicker: boolean, location: Point) {
   if (itemPicker) {
     const options = pendingPort
-      ? knownItems.filter((item) => canAttachPlantResource(plant, item, pendingPort!, (a, b) => resourcesMatch(a, b, itemTags, fluidTags)))
+      ? knownItems.filter((item) => canAttachPlantResource(plant, item, pendingPort!, (id) => recipesById.get(id)))
       : knownItems;
     const kinds = pendingPort
       ? pendingPort.direction === "output" ? ["demand", "pool"] as const : ["supply", "pool"] as const
@@ -740,7 +741,7 @@ function openBackgroundPicker(itemPicker: boolean, location: Point) {
     : { id: "pending-link", kind: "supply" as const, resource: pending.resource };
   const matchResource = (a: Resource, b: Resource) => resourcesMatch(a, b, itemTags, fluidTags);
   const options = recipesForPlantBoundary(recipes, boundary, matchResource, action,
-    (resource) => canAttachPlantResource(plant, resource, pending, matchResource));
+    (resource) => canAttachPlantResource(plant, resource, pending, (id) => recipesById.get(id)));
   pickers.openRecipePicker(`Connect ${short(pending.resource.id)} · choose a process`, options, addRecipe);
 }
 
@@ -887,7 +888,7 @@ function handlePort(port: PortRef, touch = false) {
   const from = pendingPort.direction === "output" ? pendingPort : port;
   const to = pendingPort.direction === "input" ? pendingPort : port;
   try {
-    if (!resourcesMatch(from.resource, to.resource, itemTags, fluidTags)) throw new Error("Choose ports for matching materials");
+    if (!canAttachPlantResource(plant, from.resource, to, (id) => recipesById.get(id))) throw new Error("Choose ports for matching materials");
     const result = togglePlantConnection(plant, { id: nextId("flow"), from, to });
     plant = result.plant;
     pendingPort = undefined; previewPoint = undefined; pruneDisconnectedBoundaries(); save(); render(); setStatus(result.connected ? "Flow connected" : "Flow removed");
@@ -926,6 +927,7 @@ function addItemBoundary(kind: "supply" | "demand" | "pool", item: Resource, pos
     const result = addPlantBoundaryAtPort(plant, kind, item, pending, {
       createId: nextId,
       resourcesMatch: (a, b) => resourcesMatch(a, b, itemTags, fluidTags),
+      findRecipe: (id) => recipesById.get(id),
     });
     plant = result.plant;
     id = result.componentId;

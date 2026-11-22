@@ -55,6 +55,12 @@ export function ingredientForPort(inputs: Ingredient[], resource: Resource): Ing
     ?? inputs.find((input) => ingredientAccepts(input, resource));
 }
 
+export function ingredientConnectionAccepts(inputs: Ingredient[], port: Resource, source: Resource): boolean {
+  const input = ingredientForPort(inputs, port);
+  return !!input && ingredientAccepts(input, source) &&
+    (resourceKey(input) === resourceKey(port) || ingredientAccepts(port, source));
+}
+
 export function resourcesMatch(a: Pick<Ingredient, "type" | "id" | "alternatives">, b: Pick<Ingredient, "type" | "id" | "alternatives">, itemTags: Record<string, string[]>, fluidTags: Record<string, string[]>): boolean {
   if (a.type !== b.type) return false;
   const values = (resource: typeof a) => {
