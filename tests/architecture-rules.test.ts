@@ -59,3 +59,13 @@ const overlapPlant: Plant = { id: "overlap", components: [
 const overlapResult = analyzePlantRates(overlapPlant, { findRecipe: () => overlappingRecipe, requiredOperatingConditions: () => [], stressImpactPerMachine: () => 0, calculateTiming: () => { throw new Error("not needed"); } });
 assert.notEqual(overlapResult.status, "conflicting", overlapResult.issues.join(", "));
 assert.notEqual(overlapResult.status, "invalid", overlapResult.issues.join(", "));
+
+const stressPlant: Plant = { id: "stress", components: [{ id: "stress-process", kind: "process", recipeId: "stress-recipe" }, { id: "stress-sink", kind: "demand", resource }], connections: [{ id: "stress-flow", from: port("stress-process", "output"), to: port("stress-sink", "input") }], constraints: [
+  { id: "rpm", kind: "bound", relation: "equals", value: 1, target: { kind: "rpm", componentId: "stress-process" } },
+  { id: "stress", kind: "bound", relation: "at-most", value: 1.9, target: { kind: "stress", componentId: "stress-process" } },
+] };
+const stressRecipe = { id: "stress-recipe", inputs: [], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] } as Recipe;
+const stressResult = analyzePlantRates(stressPlant, { findRecipe: () => stressRecipe, requiredOperatingConditions: () => ["rpm"], stressImpactPerMachine: () => 0.5, calculateTiming: () => ({ batchesPerMinute: 1, runsPerCycle: 1 } as never) });
+const stressRate = stressResult.portRates.find(({ port }) => port.componentId === "stress-process" && port.direction === "output")?.rate;
+assert.ok(stressRate?.state === "underconstrained");
+assert.equal(stressRate.maximum, 3);

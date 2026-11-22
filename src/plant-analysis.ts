@@ -573,7 +573,8 @@ function upperBoundFor(plant: Plant, target: { kind: "machine-count" | "stress";
   const upper = constraints.filter(({ relation }) => relation === "at-most").map(({ value }) => value);
   const candidates = [...equal, ...upper];
   if (candidates.length === 0) return undefined;
-  const maximum = Math.floor(Math.min(...candidates));
+  const limit = Math.min(...candidates);
+  const maximum = target.kind === "machine-count" ? Math.floor(limit) : limit;
   return target.kind === "machine-count" && plant.constraints.some((constraint) => constraint.kind === "power-of-two" &&
     constraint.target.kind === "machine-count" && constraint.target.componentId === target.componentId)
     ? maximum < 1 ? 0 : 2 ** Math.floor(Math.log2(maximum))
