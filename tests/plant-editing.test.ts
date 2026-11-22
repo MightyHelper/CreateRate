@@ -194,3 +194,19 @@ const canProduceForExistingFlows = (candidate: typeof resource) => matchDependen
 assert.equal(recipesForPlantBoundary([ironRecipe as never, goldRecipe as never], broadSource, matchDependencies.resourcesMatch, "produce", canProduceForExistingFlows).length, 1);
 assert.throws(() => expandPlantBoundary(restrictedGraph, broadSource.id, goldRecipe as never, matchDependencies), /does not match/);
 assert.ok(expandPlantBoundary(restrictedGraph, broadSource.id, ironRecipe as never, matchDependencies).plant.connections.some(({ id }) => id === "restricted-flow"));
+
+const { mergePlantResourceComponents } = await import("../src/core/plant-editing.ts");
+for (const kind of ["supply", "demand"] as const) {
+  const direction = kind === "supply" ? "output" as const : "input" as const;
+  const source = { id: "merge-a", kind, resource }, target = { id: "merge-b", kind, resource };
+  const targetPort = { componentId: target.id, direction, resource };
+  const constrained: Plant = { id: "merge", components: [source, target], connections: [], constraints: [{ id: "rate", kind: "bound", relation: "equals", value: 5, target: { kind: "port-rate", port: targetPort } }] };
+  assert.throws(() => mergePlantResourceComponents(constrained, source.id, target.id, createId), /port-rate constraints/);
+  assert.throws(() => mergePlantResourceComponents(constrained, target.id, source.id, createId), /port-rate constraints/);
+  assert.equal(constrained.components.length, 2);
+}
+const mergePlant: Plant = { id: "merge-flow", components: [{ id: "a", kind: "supply", resource }, { id: "b", kind: "supply", resource }, { id: "d", kind: "demand", resource }], connections: [{ id: "flow", from: port("a", "output"), to: port("d", "input") }], constraints: [{ id: "flow-limit", kind: "bound", relation: "at-most", value: 5, target: { kind: "connection-rate", connectionId: "flow" } }] };
+const merged = mergePlantResourceComponents(mergePlant, "a", "b", createId);
+assert.equal(merged.connections[0].from.componentId, "b");
+assert.deepEqual(merged.constraints, mergePlant.constraints);
+assert.equal(mergePlantResourceComponents(mergePlant, "a", "a", createId), mergePlant);

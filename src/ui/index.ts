@@ -510,7 +510,7 @@ function mergeBoundaries(sourceId: string, targetId: string) {
   const target = plant.components.find(({ id }) => id === targetId);
   if (!source || !target || source.kind === "process" || target.kind === "process" || source.kind === "pool" || target.kind === "pool") return;
   try { plant = mergePlantResourceComponents(plant, sourceId, targetId, nextId); }
-  catch { return; }
+  catch (error) { setStatus(error instanceof Error ? error.message : "Could not merge resources"); return; }
   if (source.kind === target.kind) {
     delete positions[sourceId];
     selectedIds.delete(sourceId); selected = targetId; selectedIds.add(targetId);

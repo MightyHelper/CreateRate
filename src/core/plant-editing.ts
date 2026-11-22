@@ -394,6 +394,7 @@ export function mergePlantResourceComponents(plant: Plant, sourceId: string, tar
   const source = plant.components.find(({ id }) => id === sourceId);
   const target = plant.components.find(({ id }) => id === targetId);
   if (!source || !target || source.kind === "process" || target.kind === "process" || source.kind === "pool" || target.kind === "pool") throw new Error("Only source and sink squares can be merged");
+  if (sourceId === targetId) return plant;
   if (resourceKey(source.resource) !== resourceKey(target.resource)) throw new Error("Resource squares must contain the same item");
 
   if (source.kind !== target.kind) {
@@ -401,6 +402,11 @@ export function mergePlantResourceComponents(plant: Plant, sourceId: string, tar
     const demand = source.kind === "demand" ? source : target;
     if (plant.connections.some((edge) => edge.from.componentId === supply.id && edge.to.componentId === demand.id)) return plant;
     return connect(plant, supply.id, supply.resource, demand.id, createId);
+  }
+
+  if (plant.constraints.some((constraint) => constraint.target.kind === "port-rate" &&
+      (constraint.target.port.componentId === sourceId || constraint.target.port.componentId === targetId))) {
+    throw new Error("Cannot merge resources with port-rate constraints; remove or move the constraints first");
   }
 
   let next: Plant = {
@@ -411,12 +417,7 @@ export function mergePlantResourceComponents(plant: Plant, sourceId: string, tar
       to: edge.to.componentId === sourceId ? { ...edge.to, componentId: targetId } : edge.to,
     })),
   };
-  const movedConstraints = next.constraints.filter((constraint) => constraint.target.kind === "port-rate" && constraint.target.port.componentId === sourceId);
   next = removePlantComponent(next, sourceId);
-  for (const constraint of movedConstraints) {
-    if (constraint.target.kind !== "port-rate") continue;
-    next = addPlantConstraint(next, { ...constraint, target: { kind: "port-rate", port: { ...constraint.target.port, componentId: targetId } } });
-  }
   return next;
 }
 
