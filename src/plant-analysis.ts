@@ -305,7 +305,11 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
       addIssue(issues, `${variable} resolves to an invalid negative or non-finite rate`);
       return false;
     }
-    const normalized = Math.abs(value) < 1e-8 ? 0 : value;
+    const domain = domains.get(variable);
+    const rounded = Math.round(value);
+    const normalized = Math.abs(value) < 1e-8 ? 0
+      : state === "derived" && (domain?.integer || domain?.powerOfTwo) && Math.abs(value - rounded) < 1e-8 ? rounded
+      : value;
     const current = known.get(variable);
     if (current && Math.abs(current.value - normalized) > 1e-7) {
       addIssue(issues, `${variable} has conflicting values ${current.value} and ${normalized}`);

@@ -69,3 +69,15 @@ const stressResult = analyzePlantRates(stressPlant, { findRecipe: () => stressRe
 const stressRate = stressResult.portRates.find(({ port }) => port.componentId === "stress-process" && port.direction === "output")?.rate;
 assert.ok(stressRate?.state === "underconstrained");
 assert.equal(stressRate.maximum, 3);
+
+const fractionalOutputRecipe = { ...withOutputs, outputAmount: 0.1, outputs: [{ resource, amount: 0.1 }] };
+const roundedPlant: Plant = { ...surplusPlant, constraints: [
+  { id: "integer", kind: "integer", target: { kind: "port-rate", port: port("process", "input") } },
+  { id: "output", kind: "bound", relation: "equals", value: 0.3, target: { kind: "port-rate", port: port("demand", "input") } },
+] };
+const roundedResult = analyzePlantRates(roundedPlant, { findRecipe: () => fractionalOutputRecipe, requiredOperatingConditions: () => [], stressImpactPerMachine: () => 0, calculateTiming: () => { throw new Error("not needed"); } });
+assert.equal(roundedResult.status, "balanced", roundedResult.issues.join(", "));
+const roundedInput = roundedResult.portRates.find(({ port }) => port.componentId === "process" && port.direction === "input")?.rate;
+assert.ok(roundedInput && (roundedInput.state === "derived" || roundedInput.state === "constrained"));
+assert.equal(roundedInput.perMinute, 3);
+assert.throws(() => validateConstraintSet(3.0000000001, undefined, undefined, true, false), /integer/);
