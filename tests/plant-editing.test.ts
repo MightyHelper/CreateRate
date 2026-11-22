@@ -44,3 +44,27 @@ assert.ok(alternativeResult.plant.constraints.some((constraint) => constraint.id
 const gold = { type: "item" as const, id: "minecraft:gold_ingot" };
 const multiple: Plant = { ...alternative, components: [...alternative.components, { id: "other", kind: "process", recipeId: "other" }], connections: [...alternative.connections, { id: "gold", from: { componentId: "other", direction: "output", resource: gold }, to: { componentId: "downstream", direction: "input", resource: choice } }] };
 assert.throws(() => deletePlantSelection(multiple, ["downstream"], createId), /multiple alternative resources/);
+
+const { addPlantRecipe } = await import("../src/core/plant-editing.ts");
+const repeatedOutput = { id: "repeated", inputs: [], output: resource, outputAmount: 1, outputs: [{ resource, amount: 2, chance: 0.5 }, { resource, amount: 3, chance: 0.25 }] };
+const repeatedResult = addPlantRecipe({ id: "empty", components: [], connections: [], constraints: [] }, repeatedOutput as never, createId);
+assert.equal(repeatedResult.createdComponents.filter((component) => component.kind === "demand").length, 1);
+assert.equal(repeatedResult.plant.connections.length, 1);
+
+const { expandPlantBoundary } = await import("../src/core/plant-editing.ts");
+for (const kind of ["supply", "demand"] as const) {
+  const junction = { id: "junction", kind, resource };
+  const ends = ["one", "two"].map((id) => ({ id, kind: "process" as const, recipeId: id }));
+  const connections = ends.map(({ id }) => ({ id: `edge-${id}`, from: port(kind === "supply" ? "junction" : id, "output"), to: port(kind === "supply" ? id : "junction", "input"), secondary: id === "two" }));
+  const constraints: Plant["constraints"] = connections.map(({ id }) => ({ id: `constraint-${id}`, kind: "bound", relation: "at-most", value: 10, target: { kind: "connection-rate", connectionId: id } }));
+  constraints.push({ id: "port-constraint", kind: "bound", relation: "at-most", value: 20, target: { kind: "port-rate", port: port("junction", kind === "supply" ? "output" : "input") } });
+  const graph: Plant = { id: kind, components: [junction, ...ends], connections, constraints };
+  const expanded = expandPlantBoundary(graph, "junction", { id: "recipe", inputs: [{ ...resource, amount: 1 }], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] } as never, { createId, resourcesMatch: (a, b) => a.type === b.type && a.id === b.id });
+  for (const edge of connections) {
+    const kept = expanded.plant.connections.find(({ id }) => id === edge.id);
+    assert.ok(kept);
+    assert.equal(kept.secondary, edge.secondary);
+    assert.ok(expanded.plant.constraints.some((constraint) => constraint.id === `constraint-${edge.id}`));
+  }
+  assert.ok(expanded.plant.constraints.some((constraint) => constraint.id === "port-constraint" && constraint.target.kind === "port-rate" && constraint.target.port.componentId === expanded.processId));
+}

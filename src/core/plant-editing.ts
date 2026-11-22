@@ -1,4 +1,4 @@
-import { ingredientAccepts, recipeOutputs } from "../recipe-queries.ts";
+import { ingredientAccepts, recipeOutputPorts, recipeOutputs } from "../recipe-queries.ts";
 import type { Recipe } from "../recipes.ts";
 import {
   addPlantComponent,
@@ -59,7 +59,7 @@ export function addPlantRecipe(plant: Plant, recipe: Recipe, createId: (prefix: 
     next = connect(next, source.id, input, processId, createId);
     createdComponents.push(source);
   }
-  for (const output of recipeOutputs(recipe)) {
+  for (const output of recipeOutputPorts(recipe)) {
     const sink: PlantComponent = { id: createId("sink"), kind: "demand", resource: output.resource };
     next = addPlantComponent(next, sink);
     next = connect(next, processId, output.resource, sink.id, createId);
@@ -133,9 +133,12 @@ export function expandPlantBoundary(plant: Plant, componentId: string, recipe: R
   if (!boundary || (boundary.kind !== "supply" && boundary.kind !== "demand")) throw new Error(`Unknown resource boundary: ${componentId}`);
   const { createId, resourcesMatch } = dependencies;
   const outputs = recipeOutputs(recipe);
-  const attached = boundary.kind === "supply"
-    ? plant.connections.find((edge) => edge.from.componentId === componentId)
-    : plant.connections.find((edge) => edge.to.componentId === componentId);
+  const attached = plant.connections.filter((edge) => boundary.kind === "supply"
+    ? edge.from.componentId === componentId : edge.to.componentId === componentId);
+  const attachedIds = new Set(attached.map(({ id }) => id));
+  const retainedConstraints = plant.constraints.filter((constraint) =>
+    constraint.target.kind === "connection-rate" && attachedIds.has(constraint.target.connectionId) ||
+    constraint.target.kind === "port-rate" && constraint.target.port.componentId === componentId);
   const replacement = boundary.kind === "supply"
     ? outputs.find(({ resource }) => resourcesMatch(resource, boundary.resource))
     : recipe.inputs.find((input) => resourcesMatch(input, boundary.resource));
@@ -147,19 +150,18 @@ export function expandPlantBoundary(plant: Plant, componentId: string, recipe: R
   next = added.plant;
   const createdComponents = [...added.createdComponents];
   const matchingResource = "resource" in replacement ? replacement.resource : replacement;
-  if (attached && boundary.kind === "supply") {
+  if (attached.length && boundary.kind === "supply") {
     const generatedSink = createdComponents.find((component) => component.kind === "demand" && resourcesMatch(component.resource, boundary.resource));
     if (generatedSink) {
       next = removePlantComponent(next, generatedSink.id);
       createdComponents.splice(createdComponents.indexOf(generatedSink), 1);
       removedComponentIds.push(generatedSink.id);
     }
-    next = connectPlantPorts(next, {
-      id: createId("flow"),
+    for (const edge of attached) next = connectPlantPorts(next, {
+      ...edge,
       from: { componentId: added.processId, direction: "output", resource: matchingResource },
-      to: attached.to,
     });
-  } else if (attached) {
+  } else if (attached.length) {
     const inputIndex = recipe.inputs.findIndex((input) => resourcesMatch(input, boundary.resource));
     const generatedSource = createdComponents.find((component) => component.kind === "supply" && resourcesMatch(component.resource, boundary.resource));
     if (generatedSource) {
@@ -168,11 +170,16 @@ export function expandPlantBoundary(plant: Plant, componentId: string, recipe: R
       removedComponentIds.push(generatedSource.id);
     }
     const input = recipe.inputs[inputIndex];
-    next = connectPlantPorts(next, {
-      id: createId("flow"),
-      from: attached.from,
+    for (const edge of attached) next = connectPlantPorts(next, {
+      ...edge,
       to: { componentId: added.processId, direction: "input", resource: input },
     });
+  }
+  for (const constraint of retainedConstraints) {
+    const target = constraint.target.kind === "port-rate"
+      ? { ...constraint.target, port: { ...constraint.target.port, componentId: added.processId, resource: matchingResource } }
+      : constraint.target;
+    next = addPlantConstraint(next, { ...constraint, target });
   }
   return { plant: next, processId: added.processId, createdComponents, removedComponentIds };
 }
