@@ -134,3 +134,16 @@ const hugeFlow: Plant = { id: "huge", components: [{ id: "s", kind: "supply", re
 ] };
 const hugeResult = analyzePlantRates(hugeFlow, { findRecipe: () => undefined, requiredOperatingConditions: () => [], stressImpactPerMachine: () => 0, calculateTiming: () => { throw new Error("not needed"); } });
 assert.equal(hugeResult.status, "conflicting");
+
+const powerStress: Plant = { ...stressPlant, constraints: [
+  { id: "rpm", kind: "bound", relation: "equals", value: 1, target: { kind: "rpm", componentId: "stress-process" } },
+  { id: "power", kind: "power-of-two", target: { kind: "machine-count", componentId: "stress-process" } },
+  { id: "limit", kind: "bound", relation: "at-most", value: 3, target: { kind: "stress", componentId: "stress-process" } },
+] };
+const analyzePowerStress = (plant: Plant) => analyzePlantRates(plant, { findRecipe: () => stressRecipe, requiredOperatingConditions: () => ["rpm"], stressImpactPerMachine: () => 1, calculateTiming: () => ({ batchesPerMinute: 1, runsPerCycle: 1 } as never) });
+const powerRate = analyzePowerStress(powerStress).portRates.find(({ port }) => port.componentId === "stress-process" && port.direction === "output")?.rate;
+assert.ok(powerRate?.state === "underconstrained");
+assert.equal(powerRate.maximum, 2);
+const exactPower = (value: number): Plant => ({ ...powerStress, constraints: powerStress.constraints.map((constraint) => constraint.id === "limit" && constraint.kind === "bound" ? { ...constraint, relation: "equals", value } : constraint) });
+assert.equal(analyzePowerStress(exactPower(3)).status, "conflicting");
+assert.notEqual(analyzePowerStress(exactPower(2)).status, "conflicting");

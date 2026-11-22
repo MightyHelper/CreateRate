@@ -251,6 +251,8 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     if (conditions.includes("rpm") && rpm === undefined) continue;
     if (conditions.includes("stackSize") && stackSize === undefined) continue;
     let machineCount = upperBoundFor(plant, { kind: "machine-count", componentId: component.id });
+    const countPowerOfTwo = plant.constraints.some((constraint) => constraint.kind === "power-of-two" &&
+      constraint.target.kind === "machine-count" && constraint.target.componentId === component.id);
     const stressPerMachineAtRpm = stressImpactPerMachine(recipe) * Math.abs(rpm ?? 0);
     if (stressPerMachineAtRpm > 0) {
       const stressLimit = upperBoundFor(plant, { kind: "stress", componentId: component.id });
@@ -264,6 +266,8 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
         const exactStressMachineCount = nearInteger(derivedMachineCount);
         if (!Number.isInteger(exactStressMachineCount)) {
           addIssue(issues, `${component.id} stress constraint implies a fractional machine count`);
+        } else if (countPowerOfTwo && !isPowerOfTwo(exactStressMachineCount)) {
+          addIssue(issues, `${component.id} stress constraint violates the machine-count power-of-two restriction`);
         } else {
           const exactMachineCount = exactConstraintValue(plant, { kind: "machine-count", componentId: component.id });
           if (exactMachineCount !== undefined && exactMachineCount !== exactStressMachineCount) {
@@ -274,6 +278,7 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
       }
     }
     if (machineCount === undefined) continue;
+    if (countPowerOfTwo) machineCount = machineCount < 1 ? 0 : 2 ** Math.floor(Math.log2(machineCount));
     try {
       const timing = calculateTiming(recipe, rpm ?? 0, stackSize ?? 1);
       const maximumRuns = timing.batchesPerMinute * timing.runsPerCycle * machineCount;
