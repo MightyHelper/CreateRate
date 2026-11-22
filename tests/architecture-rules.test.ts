@@ -81,3 +81,14 @@ const roundedInput = roundedResult.portRates.find(({ port }) => port.componentId
 assert.ok(roundedInput && (roundedInput.state === "derived" || roundedInput.state === "constrained"));
 assert.equal(roundedInput.perMinute, 3);
 assert.throws(() => validateConstraintSet(3.0000000001, undefined, undefined, true, false), /integer/);
+
+const boundedPlant: Plant = { ...roundedPlant, constraints: roundedPlant.constraints.map((constraint) => constraint.id === "output" && constraint.kind === "bound" ? { ...constraint, relation: "at-most", value: 0.3 } : constraint) };
+const analyzeBounded = (plant: Plant) => analyzePlantRates(plant, { findRecipe: () => fractionalOutputRecipe, requiredOperatingConditions: () => [], stressImpactPerMachine: () => 0, calculateTiming: () => { throw new Error("not needed"); } });
+const boundResult = analyzeBounded(boundedPlant);
+const boundInput = boundResult.portRates.find(({ port }) => port.componentId === "process" && port.direction === "input")?.rate;
+assert.ok(boundInput?.state === "underconstrained");
+assert.equal(boundInput.maximum, 3);
+const explicitLimit: Plant = { ...boundedPlant, constraints: [...boundedPlant.constraints, { id: "explicit-max", kind: "bound", relation: "at-most", value: 2.999999999, target: { kind: "port-rate", port: port("process", "input") } }] };
+const explicitInput = analyzeBounded(explicitLimit).portRates.find(({ port }) => port.componentId === "process" && port.direction === "input")?.rate;
+assert.ok(explicitInput?.state === "underconstrained");
+assert.equal(explicitInput.maximum, 2);

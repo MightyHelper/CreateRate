@@ -351,9 +351,17 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     bounds.set(variable, bound);
   }
 
-  const tightenBounds = (variable: string, minimum: number, maximum: number): boolean => {
+  const tightenBounds = (variable: string, minimum: number, maximum: number, derived = true): boolean => {
     const current = bounds.get(variable) ?? { minimum: 0 };
     const domain = domains.get(variable);
+    if (derived && (domain?.integer || domain?.powerOfTwo)) {
+      const nearInteger = (value: number) => {
+        const rounded = Math.round(value);
+        return Number.isFinite(value) && Math.abs(value - rounded) <= Number.EPSILON * 4 * Math.max(1, Math.abs(value)) ? rounded : value;
+      };
+      minimum = nearInteger(minimum);
+      maximum = nearInteger(maximum);
+    }
     let nextMinimum = Math.max(current.minimum, 0, minimum);
     let nextMaximum = Math.min(current.maximum ?? Infinity, maximum);
     if (domain?.powerOfTwo) {
@@ -386,7 +394,7 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
 
   for (const { variable, value } of exactRateConstraints) assign(variable, value, "constrained");
   for (const [variable, bound] of [...bounds]) {
-    tightenBounds(variable, bound.minimum, bound.maximum ?? Infinity);
+    tightenBounds(variable, bound.minimum, bound.maximum ?? Infinity, false);
   }
 
   let changed = true;
