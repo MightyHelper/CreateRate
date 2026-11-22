@@ -36,14 +36,14 @@ export function deletePlantSelection(plant: Plant, ids: string[], createId: (pre
     }
     next = removePlantComponent(next, id); deleted++;
   }
-  const pruned = removeDisconnectedPlantBoundaries(next);
+  const pruned = removeDisconnectedPlantBoundaries(next, plant);
   const remaining = new Set(pruned.plant.components.map(({ id }) => id));
   return { plant: pruned.plant, deleted, mergedPools, blocked, processes,
     removedComponentIds: plant.components.filter(({ id }) => !remaining.has(id)).map(({ id }) => id) };
 }
 
 export function deletePlantFlow(plant: Plant, connectionId: string) {
-  return removeDisconnectedPlantBoundaries(deletePlantConnection(plant, connectionId));
+  return removeDisconnectedPlantBoundaries(deletePlantConnection(plant, connectionId), plant);
 }
 
 export function addPlantRecipe(plant: Plant, recipe: Recipe, createId: (prefix: string) => string) {
@@ -378,7 +378,7 @@ export function deletePlantProcess(plant: Plant, processId: string, createId: (p
     if (!sourceId) continue;
     next = addPlantConstraint(next, { ...constraint, target: { kind: "port-rate", port: { ...constraint.target.port, componentId: sourceId, direction: "output" } } });
   }
-  const pruned = removeDisconnectedPlantBoundaries(next);
+  const pruned = removeDisconnectedPlantBoundaries(next, plant);
   return {
     plant: pruned.plant,
     createdInputs,
@@ -480,8 +480,10 @@ export function bypassPlantPool(plant: Plant, poolId: string, createId: (prefix:
   return next;
 }
 
-export function removeDisconnectedPlantBoundaries(plant: Plant) {
+export function removeDisconnectedPlantBoundaries(plant: Plant, before?: Plant) {
+  const previouslyConnected = before && new Set(before.connections.flatMap((edge) => [edge.from.componentId, edge.to.componentId]));
   const removedComponentIds = plant.components.filter((component) => component.kind !== "process" &&
+    (!previouslyConnected || previouslyConnected.has(component.id)) &&
     !plant.connections.some((edge) => edge.from.componentId === component.id || edge.to.componentId === component.id)).map(({ id }) => id);
   let next = plant;
   for (const id of removedComponentIds) next = removePlantComponent(next, id);

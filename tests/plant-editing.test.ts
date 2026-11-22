@@ -210,3 +210,18 @@ const merged = mergePlantResourceComponents(mergePlant, "a", "b", createId);
 assert.equal(merged.connections[0].from.componentId, "b");
 assert.deepEqual(merged.constraints, mergePlant.constraints);
 assert.equal(mergePlantResourceComponents(mergePlant, "a", "a", createId), mergePlant);
+
+const standalone = { id: "standalone", kind: "supply" as const, resource };
+const standaloneConstraint: Plant["constraints"][number] = { id: "standalone-rate", kind: "bound", relation: "equals", value: 8, target: { kind: "port-rate", port: port("standalone", "output") } };
+const withStandalone: Plant = { ...plant, components: [...plant.components, standalone], constraints: [standaloneConstraint] };
+const noOp = deletePlantSelection(withStandalone, [], createId);
+assert.deepEqual(noOp.plant, withStandalone);
+const blockedDelete = deletePlantSelection({ ...bypassed.plant, components: [...bypassed.plant.components, standalone], constraints: [standaloneConstraint] }, ["sink"], createId);
+assert.equal(blockedDelete.deleted, 0);
+assert.ok(blockedDelete.plant.components.some(({ id }) => id === "standalone"));
+assert.ok(blockedDelete.plant.constraints.some(({ id }) => id === "standalone-rate"));
+const { deletePlantFlow: deleteFlow } = await import("../src/core/plant-editing.ts");
+const flowGraph: Plant = { id: "flow", components: [{ id: "source", kind: "supply", resource }, { id: "sink-flow", kind: "demand", resource }, standalone], connections: [{ id: "flow-to-delete", from: port("source", "output"), to: port("sink-flow", "input") }], constraints: [standaloneConstraint] };
+const flowDeleted = deleteFlow(flowGraph, "flow-to-delete");
+assert.deepEqual(flowDeleted.plant.components.map(({ id }) => id), ["standalone"]);
+assert.deepEqual(flowDeleted.plant.constraints, [standaloneConstraint]);

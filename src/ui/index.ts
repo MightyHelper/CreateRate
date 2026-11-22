@@ -289,7 +289,7 @@ function addRecipe(recipe: Recipe) {
     })
     : addPlantRecipe(plant, recipe, nextId);
   plant = result.plant;
-  if (pending) { pendingPort = undefined; previewPoint = undefined; pruneDisconnectedBoundaries(); }
+  if (pending) { pendingPort = undefined; previewPoint = undefined; }
   const position = { x: 80 - view.x / view.scale, y: 80 - view.y / view.scale };
   positions[result.processId] = position;
   placeRecipeBoundaries(result.createdComponents, result.processId, position);
@@ -451,8 +451,8 @@ function deleteSelection() {
   else if (result.blocked) setStatus("Cannot delete the only destination of a process output");
 }
 
-function pruneDisconnectedBoundaries() {
-  const result = removeDisconnectedPlantBoundaries(plant);
+function pruneDisconnectedBoundaries(before: Plant) {
+  const result = removeDisconnectedPlantBoundaries(plant, before);
   plant = result.plant;
   for (const id of result.removedComponentIds) { delete positions[id]; selectedIds.delete(id); }
 }
@@ -514,10 +514,10 @@ function mergeBoundaries(sourceId: string, targetId: string) {
   if (source.kind === target.kind) {
     delete positions[sourceId];
     selectedIds.delete(sourceId); selected = targetId; selectedIds.add(targetId);
-    pruneDisconnectedBoundaries(); save(); render(); setStatus("Resource squares merged");
+    save(); render(); setStatus("Resource squares merged");
     return;
   }
-  pruneDisconnectedBoundaries(); save(); render(); setStatus("Source connected to sink");
+  save(); render(); setStatus("Source connected to sink");
 }
 
 function splitConnection(connectionId: string, at: Point) {
@@ -889,9 +889,10 @@ function handlePort(port: PortRef, touch = false) {
   const to = pendingPort.direction === "input" ? pendingPort : port;
   try {
     if (!canAttachPlantResource(plant, from.resource, to, (id) => recipesById.get(id))) throw new Error("Choose ports for matching materials");
+    const before = plant;
     const result = togglePlantConnection(plant, { id: nextId("flow"), from, to });
     plant = result.plant;
-    pendingPort = undefined; previewPoint = undefined; pruneDisconnectedBoundaries(); save(); render(); setStatus(result.connected ? "Flow connected" : "Flow removed");
+    pendingPort = undefined; previewPoint = undefined; if (!result.connected) pruneDisconnectedBoundaries(before); save(); render(); setStatus(result.connected ? "Flow connected" : "Flow removed");
   } catch (error) { pendingPort = undefined; previewPoint = undefined; render(); setStatus(error instanceof Error ? error.message : "Could not connect ports"); }
 }
 
@@ -931,7 +932,7 @@ function addItemBoundary(kind: "supply" | "demand" | "pool", item: Resource, pos
     });
     plant = result.plant;
     id = result.componentId;
-    pendingPort = undefined; previewPoint = undefined; pruneDisconnectedBoundaries();
+    pendingPort = undefined; previewPoint = undefined;
   } else {
     id = nextId(kind === "supply" ? "source" : kind === "demand" ? "sink" : "pool");
     plant = addPlantComponent(plant, { id, kind, resource: item });
