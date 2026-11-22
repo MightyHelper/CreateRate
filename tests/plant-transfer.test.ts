@@ -26,3 +26,39 @@ const tagIngredient = { type: "item" as const, id: "#ingredient", alternatives: 
 assert.equal(ingredientConnectionAccepts([tagIngredient], tagIngredient, tagSource.resource), true);
 assert.equal(ingredientConnectionAccepts([tagIngredient], tagIngredient, { type: "item", id: "#other", alternatives: ["silver"] }), false);
 assert.deepEqual(canonicalizePlantResources(tagPlant, {}, {}).components, tagPlant.components);
+
+const inlineYaml = `format: "CreateRate plant"
+version: 1
+mode: graph
+plant:
+  id: p
+  components:
+    - id: source
+      kind: supply
+      resource:
+        type: item
+        id: iron
+    - "id": sink
+      kind: demand
+      resource:
+        type: item
+        id: iron
+  connections:
+    - id: flow
+      from:
+        componentId: source
+        direction: output
+        resource:
+          type: item
+          id: iron
+      to:
+        componentId: sink
+        direction: input
+        resource:
+          type: item
+          id: iron
+  constraints: []`;
+const inline = parsePlantTransferYaml(inlineYaml);
+assert.equal(inline.plant.components.length, 2);
+assert.equal(inline.plant.connections[0].id, "flow");
+assert.throws(() => parsePlantTransferYaml(inlineYaml.replace('      kind: supply', '      id: duplicate\n      kind: supply')), /Duplicate YAML key/);

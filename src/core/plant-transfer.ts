@@ -135,7 +135,15 @@ function parseYaml(source: string): unknown {
     if (!raw.trim() || raw.trimStart().startsWith("#") || raw.trim() === "---") return [];
     if (raw.includes("\t")) throw new Error(`Tabs are not supported in YAML (line ${index + 1})`);
     const indent = raw.length - raw.trimStart().length;
-    return [{ indent, text: raw.trim() }];
+    const text = raw.trim();
+    if (text.startsWith("- ")) {
+      const rest = text.slice(2).trim();
+      try {
+        splitYamlMapping(rest);
+        return [{ indent, text: "-" }, { indent: indent + 2, text: rest }];
+      } catch { /* Scalar sequence entries do not contain mapping syntax. */ }
+    }
+    return [{ indent, text }];
   });
   if (!lines.length) throw new Error("Clipboard is empty");
   const parsed = parseYamlBlock(lines, 0, lines[0].indent);
