@@ -301,9 +301,9 @@ export function deletePlantProcess(plant: Plant, processId: string, createId: (p
     constraint.target.kind === "port-rate" && constraint.target.port.componentId === processId && constraint.target.port.direction === "input");
   const outputConstraints = plant.constraints.filter((constraint) =>
     constraint.target.kind === "port-rate" && constraint.target.port.componentId === processId && constraint.target.port.direction === "output");
-  const incoming = plant.connections.filter((edge) => edge.to.componentId === processId &&
+  const incoming = plant.connections.filter((edge) => edge.to.componentId === processId && edge.from.componentId !== processId &&
     plant.components.some((component) => component.id === edge.from.componentId && (component.kind === "process" || component.kind === "pool")));
-  const outgoing = plant.connections.filter((edge) => edge.from.componentId === processId &&
+  const outgoing = plant.connections.filter((edge) => edge.from.componentId === processId && edge.to.componentId !== processId &&
     plant.components.some((component) => component.id === edge.to.componentId && (component.kind === "process" || component.kind === "pool")));
   const materials = new Map<string, Resource>();
   const materialKey = (edge: PlantConnection) => JSON.stringify([resourceKey(edge.to.resource), resourceKey(edge.from.resource)]);

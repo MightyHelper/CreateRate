@@ -157,3 +157,19 @@ const processGraph: Plant = { id: "process", components: [{ id: "process", kind:
 const processChoice = { componentId: "process", direction: "input" as const, resource: tagged };
 assert.equal(canAttachPlantResource(processGraph, resource, processChoice, matchDependencies.resourcesMatch), true);
 assert.equal(addPlantBoundaryAtPort(processGraph, "supply", resource, processChoice, matchDependencies).plant.connections.length, 1);
+
+const selfLoop: Plant = { id: "loop", components: [{ id: "loop-process", kind: "process", recipeId: "r" }], connections: [{ id: "loop-edge", from: port("loop-process", "output"), to: port("loop-process", "input") }], constraints: [{ id: "loop-rate", kind: "bound", relation: "equals", value: 5, target: { kind: "connection-rate", connectionId: "loop-edge" } }] };
+const removedLoop = deletePlantSelection(selfLoop, ["loop-process"], createId).plant;
+assert.deepEqual(removedLoop.components, []);
+assert.deepEqual(removedLoop.connections, []);
+assert.deepEqual(removedLoop.constraints, []);
+const loopAndExternal: Plant = { ...selfLoop, components: [...selfLoop.components, { id: "upstream-loop", kind: "process", recipeId: "up" }, { id: "downstream-loop", kind: "process", recipeId: "down" }], connections: [
+  ...selfLoop.connections,
+  { id: "external-in", from: port("upstream-loop", "output"), to: port("loop-process", "input") },
+  { id: "external-out", from: port("loop-process", "output"), to: port("downstream-loop", "input") },
+] };
+const removedMixed = deletePlantSelection(loopAndExternal, ["loop-process"], createId).plant;
+assert.deepEqual(new Set(removedMixed.connections.map(({ id }) => id)), new Set(["external-in", "external-out"]));
+assert.equal(removedMixed.constraints.length, 0);
+assert.equal(removedMixed.components.filter((component) => component.kind === "demand").length, 1);
+assert.equal(removedMixed.components.filter((component) => component.kind === "supply").length, 1);
