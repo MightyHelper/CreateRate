@@ -9,7 +9,7 @@ export function resourceChoice(resource: { id: string; alternatives?: string[] }
 export function choiceTagId(alternatives: string[]): string {
   const members = [...alternatives].sort();
   const key = members.join("\0");
-  const name = members.length === 2 && members.every((id) => id.endsWith("_nugget"))
+  const name = key === "create:zinc_nugget\0minecraft:iron_nugget"
     ? "nuggets"
     : `choices/${hash(key)}`;
   const tag = `createrate:${name}`;
