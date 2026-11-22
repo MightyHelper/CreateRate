@@ -173,3 +173,24 @@ assert.deepEqual(new Set(removedMixed.connections.map(({ id }) => id)), new Set(
 assert.equal(removedMixed.constraints.length, 0);
 assert.equal(removedMixed.components.filter((component) => component.kind === "demand").length, 1);
 assert.equal(removedMixed.components.filter((component) => component.kind === "supply").length, 1);
+
+const { recipesForPlantBoundary } = await import("../src/core/plant-editing.ts");
+const taggedDemand = { id: "tag-demand", kind: "demand" as const, resource: tagged };
+const taggedDemandPlant: Plant = { id: "tagged-demand", components: [taggedDemand], connections: [], constraints: [] };
+const ironRecipe = { id: "iron", inputs: [], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] };
+assert.equal(recipesForPlantBoundary([ironRecipe as never], taggedDemand, matchDependencies.resourcesMatch, "produce").length, 0);
+assert.throws(() => addPlantRecipeAtBoundary(taggedDemandPlant, taggedDemand.id, ironRecipe as never, matchDependencies), /does not match/);
+assert.throws(() => addPlantRecipeAtPort(taggedDemandPlant, ironRecipe as never, { componentId: taggedDemand.id, direction: "input", resource: tagged }, matchDependencies), /does not match/);
+const matchingTagRecipe = { ...ironRecipe, output: tagged, outputs: [{ resource: tagged, amount: 1 }] };
+assert.equal(recipesForPlantBoundary([matchingTagRecipe as never], taggedDemand, matchDependencies.resourcesMatch, "produce").length, 1);
+assert.equal(addPlantRecipeAtBoundary(taggedDemandPlant, taggedDemand.id, matchingTagRecipe as never, matchDependencies).plant.connections.length, 1);
+const processInputGraph: Plant = { id: "target-process", components: [{ id: "target", kind: "process", recipeId: "r" }], connections: [], constraints: [] };
+assert.equal(addPlantRecipeAtPort(processInputGraph, ironRecipe as never, { componentId: "target", direction: "input", resource: tagged }, matchDependencies).plant.connections.length, 1);
+const broadSource = { id: "broad-source", kind: "supply" as const, resource: { type: "item" as const, id: "#broad", alternatives: [resource.id, gold.id] } };
+const ironOnly = { type: "item" as const, id: "#iron-only", alternatives: [resource.id] };
+const restrictedGraph: Plant = { id: "restricted", components: [broadSource, { id: "downstream", kind: "process", recipeId: "downstream" }], connections: [{ id: "restricted-flow", from: { componentId: broadSource.id, direction: "output", resource: broadSource.resource }, to: { componentId: "downstream", direction: "input", resource: ironOnly } }], constraints: [] };
+const goldRecipe = { ...ironRecipe, id: "gold", output: gold, outputs: [{ resource: gold, amount: 1 }] };
+const canProduceForExistingFlows = (candidate: typeof resource) => matchDependencies.resourcesMatch(candidate, broadSource.resource) && restrictedGraph.connections.every((edge) => canAttachPlantResource(restrictedGraph, candidate, edge.to, matchDependencies.resourcesMatch));
+assert.equal(recipesForPlantBoundary([ironRecipe as never, goldRecipe as never], broadSource, matchDependencies.resourcesMatch, "produce", canProduceForExistingFlows).length, 1);
+assert.throws(() => expandPlantBoundary(restrictedGraph, broadSource.id, goldRecipe as never, matchDependencies), /does not match/);
+assert.ok(expandPlantBoundary(restrictedGraph, broadSource.id, ironRecipe as never, matchDependencies).plant.connections.some(({ id }) => id === "restricted-flow"));

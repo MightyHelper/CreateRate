@@ -300,7 +300,11 @@ function expandBoundary(component: Extract<PlantComponent, { kind: "supply" | "d
   const action = component.kind === "supply"
     ? (ctrlKey ? "use" : "produce")
     : (ctrlKey ? "produce" : "use");
-  const matchingRecipes = recipesForPlantBoundary(recipes, component, matchResource, action);
+  const outputMatches = (resource: Resource) => component.kind === "demand"
+    ? resourceKey(resource) === resourceKey(component.resource)
+    : matchResource(resource, component.resource) && plant.connections.filter((edge) => edge.from.componentId === component.id)
+      .every((edge) => canAttachPlantResource(plant, resource, edge.to, matchResource));
+  const matchingRecipes = recipesForPlantBoundary(recipes, component, matchResource, action, outputMatches);
   const title = `${action[0].toUpperCase()}${action.slice(1)} ${short(component.resource.id)}`;
   pickers.openRecipePicker(title, matchingRecipes, (recipe) => {
     const oldPosition = positions[component.id] ?? { x: 0, y: 0 };
@@ -734,7 +738,9 @@ function openBackgroundPicker(itemPicker: boolean, location: Point) {
   const boundary = pending.direction === "output"
     ? { id: "pending-link", kind: "demand" as const, resource: pending.resource }
     : { id: "pending-link", kind: "supply" as const, resource: pending.resource };
-  const options = recipesForPlantBoundary(recipes, boundary, (a, b) => resourcesMatch(a, b, itemTags, fluidTags), action);
+  const matchResource = (a: Resource, b: Resource) => resourcesMatch(a, b, itemTags, fluidTags);
+  const options = recipesForPlantBoundary(recipes, boundary, matchResource, action,
+    (resource) => canAttachPlantResource(plant, resource, pending, matchResource));
   pickers.openRecipePicker(`Connect ${short(pending.resource.id)} · choose a process`, options, addRecipe);
 }
 
