@@ -46,7 +46,7 @@ export function recipeOutputPorts(recipe?: Recipe): Array<{ resource: RecipeOutp
 }
 
 export function ingredientAccepts(input: Pick<Ingredient, "type" | "id" | "alternatives">, resource: Resource): boolean {
-  return input.type === resource.type && (input.id === resource.id || (input.alternatives?.includes(resource.id) ?? false));
+  return resourcesMatch(input, resource, {}, {});
 }
 
 export function resourcesMatch(a: Pick<Ingredient, "type" | "id" | "alternatives">, b: Pick<Ingredient, "type" | "id" | "alternatives">, itemTags: Record<string, string[]>, fluidTags: Record<string, string[]>): boolean {

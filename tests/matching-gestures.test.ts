@@ -25,3 +25,14 @@ assert.deepEqual(ensurePlantOutputDestinations(plant, { createId: () => "new", f
 const badRecipe = { ...recipe, inputs: [{ ...input, alternatives: ["minecraft:gold_ingot"], amount: 1 }] };
 assert.ok(inspectPlant(plant, () => badRecipe as never).issues.some(({ code }) => code === "invalid-port"));
 assert.deepEqual(ensurePlantOutputDestinations(plant, { createId: () => "new", findRecipe: () => badRecipe as never }).removedConnectionIds, ["loop"]);
+
+const { addPlantRecipeAtPort } = await import("../src/core/plant-editing.ts");
+const { resourcesMatch } = await import("../src/recipe-queries.ts");
+const sourceChoice = { type: "item" as const, id: "#source", alternatives: ["iron"] };
+const inputChoice = { type: "item" as const, id: "#input", alternatives: ["iron"], amount: 1 };
+const choicePlant = { id: "choice", components: [{ id: "s", kind: "supply" as const, resource: sourceChoice }], connections: [], constraints: [] };
+const choiceRecipe = { id: "choice-recipe", inputs: [inputChoice], output, outputAmount: 1, outputs: [{ resource: output, amount: 1 }] };
+let nextId = 0;
+const choiceResult = addPlantRecipeAtPort(choicePlant, choiceRecipe as never, { componentId: "s", direction: "output", resource: sourceChoice }, { createId: (prefix) => `${prefix}-${nextId++}`, resourcesMatch: (a, b) => resourcesMatch(a, b, {}, {}) });
+assert.equal(inspectPlant(choiceResult.plant, () => choiceRecipe as never).valid, true);
+assert.equal(ingredientAccepts(inputChoice, { type: "item", id: "#other", alternatives: ["gold"] }), false);

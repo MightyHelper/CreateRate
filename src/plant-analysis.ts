@@ -503,7 +503,7 @@ function connectionResourcesMatch(connection: PlantConnection, target: PlantComp
   if (target.kind !== "process" || connection.from.resource.type !== connection.to.resource.type) return false;
   const recipe = findRecipe(target.recipeId);
   return recipe?.inputs.some((input) =>
-    resourceKey(input) === resourceKey(connection.to.resource) && input.alternatives?.includes(connection.from.resource.id)) ?? false;
+    resourceKey(input) === resourceKey(connection.to.resource) && ingredientAccepts(input, connection.from.resource)) ?? false;
 }
 
 function sameResource(a: Resource, b: Resource): boolean {
