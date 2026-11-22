@@ -59,3 +59,11 @@ const recipeAwareDependencies = { createId: (prefix: string) => `${prefix}-${nex
 assert.throws(() => addPlantRecipeAtPort(targetPlant, goldRecipe as never, targetPort, recipeAwareDependencies), /does not match/);
 const validInsertion = addPlantRecipeAtPort(targetPlant, ironRecipe as never, targetPort, recipeAwareDependencies);
 assert.equal(inspectPlant(validInsertion.plant, (id) => (id === "target" ? ironOnlyRecipe : ironRecipe) as never).valid, true);
+
+const { ingredientConnectionAccepts } = await import("../src/recipe-queries.ts");
+const triangleInput = { type: "item" as const, id: "#input", alternatives: ["iron", "copper"], amount: 1 };
+const trianglePort = { type: "item" as const, id: "#port", alternatives: ["copper", "gold"] };
+const triangleSource = { type: "item" as const, id: "#source", alternatives: ["gold", "iron"] };
+assert.equal(ingredientConnectionAccepts([triangleInput], trianglePort, triangleSource), false);
+assert.equal(ingredientConnectionAccepts([triangleInput], trianglePort, { ...triangleSource, alternatives: ["gold", "copper"] }), true);
+assert.equal(ingredientConnectionAccepts([triangleInput], triangleInput, { type: "item", id: "iron" }), true);

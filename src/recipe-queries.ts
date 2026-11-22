@@ -57,8 +57,10 @@ export function ingredientForPort(inputs: Ingredient[], resource: Resource): Ing
 
 export function ingredientConnectionAccepts(inputs: Ingredient[], port: Resource, source: Resource): boolean {
   const input = ingredientForPort(inputs, port);
-  return !!input && ingredientAccepts(input, source) &&
-    (resourceKey(input) === resourceKey(port) || ingredientAccepts(port, source));
+  if (!input || input.type !== port.type || input.type !== source.type) return false;
+  const members = (resource: Resource) => new Set([resource.id, ...(resource.alternatives ?? [])]);
+  const inputMembers = members(input), portMembers = members(port);
+  return [...members(source)].some((id) => inputMembers.has(id) && portMembers.has(id));
 }
 
 export function resourcesMatch(a: Pick<Ingredient, "type" | "id" | "alternatives">, b: Pick<Ingredient, "type" | "id" | "alternatives">, itemTags: Record<string, string[]>, fluidTags: Record<string, string[]>): boolean {
