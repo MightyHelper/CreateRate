@@ -241,3 +241,15 @@ const mixedDestinations: Plant = { id: "mixed-destinations", components: [
   { id: "demand-out", from: port("producer", "output"), to: port("demand", "input") },
 ], constraints: [{ id: "aggregate", kind: "bound", relation: "equals", value: 10, target: { kind: "port-rate", port: port("producer", "output") } }] };
 assert.throws(() => deletePlantSelection(mixedDestinations, ["producer"], createId), /only some of its flows/);
+
+const constrainedFlow: Plant = { ...chained, constraints: [
+  { id: "flow-exact", kind: "bound", relation: "equals", value: 5, target: { kind: "connection-rate", connectionId: "link" } },
+  { id: "flow-integer", kind: "integer", target: { kind: "connection-rate", connectionId: "link" } },
+] };
+const constrainedSplit = splitPlantConnection(constrainedFlow, "link", createId);
+for (const connectionId of [constrainedSplit.firstConnectionId, constrainedSplit.secondConnectionId]) {
+  const constraints = constrainedSplit.plant.constraints.filter((constraint) => constraint.target.kind === "connection-rate" && constraint.target.connectionId === connectionId);
+  assert.ok(constraints.some((constraint) => constraint.kind === "bound" && constraint.relation === "equals" && constraint.value === 5));
+  assert.ok(constraints.some((constraint) => constraint.kind === "integer"));
+}
+assert.equal(new Set(constrainedSplit.plant.constraints.map(({ id }) => id)).size, constrainedSplit.plant.constraints.length);

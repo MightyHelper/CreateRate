@@ -444,7 +444,10 @@ export function splitPlantConnection(plant: Plant, connectionId: string, createI
   const firstConnectionId = createId("flow"), secondConnectionId = createId("flow");
   next = connectPlantPorts(next, { id: firstConnectionId, from: edge.from, to: { componentId: demandId, direction: "input", resource: edge.from.resource }, ...(edge.secondary ? { secondary: true } : {}) });
   next = connectPlantPorts(next, { id: secondConnectionId, from: { componentId: supplyId, direction: "output", resource: edge.from.resource }, to: edge.to, ...(edge.secondary ? { secondary: true } : {}) });
-  for (const constraint of rateConstraints) next = addPlantConstraint(next, { ...constraint, target: { kind: "connection-rate", connectionId: firstConnectionId } });
+  for (const constraint of rateConstraints) {
+    next = addPlantConstraint(next, { ...constraint, target: { kind: "connection-rate", connectionId: firstConnectionId } });
+    next = addPlantConstraint(next, { ...constraint, id: createId("constraint"), target: { kind: "connection-rate", connectionId: secondConnectionId } });
+  }
   return { plant: next, demandId, supplyId, firstConnectionId, secondConnectionId };
 }
 
