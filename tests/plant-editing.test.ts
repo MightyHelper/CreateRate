@@ -146,3 +146,14 @@ assert.equal(expandedInputs.find((edge) => edge.to.resource.id === inputB.id)?.i
 const choiceSource: Plant = { id: "choice-source", components: [{ id: "choice-source", kind: "supply", resource: inputB }], connections: [], constraints: [] };
 const insertedChoice = addPlantRecipeAtBoundary(choiceSource, "choice-source", recipeWithOverlap as never, matchDependencies);
 assert.equal(insertedChoice.plant.connections.find((edge) => edge.from.componentId === "choice-source")?.to.resource.id, inputB.id);
+
+const { addPlantBoundaryAtPort, canAttachPlantResource } = await import("../src/core/plant-editing.ts");
+const tagged = { type: "item" as const, id: "#metal", alternatives: [resource.id] };
+const taggedSource: Plant = { id: "tagged", components: [{ id: "tagged-source", kind: "supply", resource: tagged }], connections: [], constraints: [] };
+const taggedOutput = { componentId: "tagged-source", direction: "output" as const, resource: tagged };
+assert.equal(canAttachPlantResource(taggedSource, resource, taggedOutput, matchDependencies.resourcesMatch), false);
+assert.throws(() => addPlantBoundaryAtPort(taggedSource, "demand", resource, taggedOutput, matchDependencies), /Choose an item/);
+const processGraph: Plant = { id: "process", components: [{ id: "process", kind: "process", recipeId: "r" }], connections: [], constraints: [] };
+const processChoice = { componentId: "process", direction: "input" as const, resource: tagged };
+assert.equal(canAttachPlantResource(processGraph, resource, processChoice, matchDependencies.resourcesMatch), true);
+assert.equal(addPlantBoundaryAtPort(processGraph, "supply", resource, processChoice, matchDependencies).plant.connections.length, 1);

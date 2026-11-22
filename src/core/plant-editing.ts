@@ -103,6 +103,13 @@ export function addPlantRecipeAtPort(plant: Plant, recipe: Recipe, port: PortRef
   return { plant: next, processId: added.processId, createdComponents };
 }
 
+export function canAttachPlantResource(plant: Plant, resource: Resource, port: PortRef, resourcesMatch: (a: Resource, b: Resource) => boolean): boolean {
+  const target = plant.components.find(({ id }) => id === port.componentId);
+  return port.direction === "input" && target?.kind === "process"
+    ? resourcesMatch(resource, port.resource)
+    : resourceKey(resource) === resourceKey(port.resource);
+}
+
 export function addPlantBoundaryAtPort(plant: Plant, kind: "supply" | "demand" | "pool", resource: Resource, port: PortRef, dependencies: {
   createId: (prefix: string) => string;
   resourcesMatch: (a: Resource, b: Resource) => boolean;
@@ -110,7 +117,7 @@ export function addPlantBoundaryAtPort(plant: Plant, kind: "supply" | "demand" |
   const { createId, resourcesMatch } = dependencies;
   const allowed = port.direction === "output" ? kind === "demand" || kind === "pool" : kind === "supply" || kind === "pool";
   if (!allowed) throw new Error(`A ${kind} cannot connect to this ${port.direction} port`);
-  if (!resourcesMatch(resource, port.resource)) throw new Error(`Choose an item matching ${port.resource.id}`);
+  if (!canAttachPlantResource(plant, resource, port, resourcesMatch)) throw new Error(`Choose an item matching ${port.resource.id}`);
   const componentId = createId(kind === "pool" ? "pool" : kind === "supply" ? "source" : "sink");
   let next = addPlantComponent(plant, { id: componentId, kind, resource });
   next = connectPlantPorts(next, {

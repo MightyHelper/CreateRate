@@ -1,6 +1,7 @@
 import {
   addPlantComponent,
   addPlantBoundaryAtPort,
+  canAttachPlantResource,
   addPlantRecipe,
   addPlantRecipeAtPort,
   addPlantRecipeAtBoundary,
@@ -716,7 +717,7 @@ function handleBackgroundTap(point: Point, shiftKey: boolean) {
 function openBackgroundPicker(itemPicker: boolean, location: Point) {
   if (itemPicker) {
     const options = pendingPort
-      ? knownItems.filter((item) => resourcesMatch(item, pendingPort!.resource, itemTags, fluidTags))
+      ? knownItems.filter((item) => canAttachPlantResource(plant, item, pendingPort!, (a, b) => resourcesMatch(a, b, itemTags, fluidTags)))
       : knownItems;
     const kinds = pendingPort
       ? pendingPort.direction === "output" ? ["demand", "pool"] as const : ["supply", "pool"] as const

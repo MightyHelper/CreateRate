@@ -14,6 +14,7 @@ export {
   addPlantRecipe,
   addPlantRecipeAtPort,
   addPlantBoundaryAtPort,
+  canAttachPlantResource,
   addPlantRecipeAtBoundary,
   bypassPlantPool,
   deletePlantProcess,
