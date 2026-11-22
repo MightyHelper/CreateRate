@@ -97,7 +97,8 @@ export function canonicalizePlantResources(plant: Plant, itemTags: Record<string
   const canonical = (resource: Resource): Resource => {
     if (!resource.id.startsWith("#")) return resource;
     const members = (resource.type === "fluid" ? fluidTags : itemTags)[resource.id.slice(1)];
-    return members?.length === 1 ? { ...resource, id: members[0] } : resource;
+    return members?.length === 1 ? { ...resource, id: members[0], alternatives: members }
+      : members?.length ? { ...resource, alternatives: members } : resource;
   };
   return {
     ...plant,

@@ -2,9 +2,11 @@ import {
   findRecipe,
   findRecipesProducing,
   listUnresolvedRecipes,
+  listResourceTags,
   recipeSetVersion,
 } from "./recipes.ts";
 import type { Ingredient, Recipe } from "./recipes.ts";
+import { canonicalizePlantResources } from "./recipe-queries.ts";
 import {
   addPlantComponent,
   addPlantConstraint,
@@ -161,11 +163,13 @@ export function capacityForRecipe(
 }
 
 export function inspectPlant(plant: Plant): PlantInspection {
-  return inspectPlantWith(plant, findRecipe);
+  const { itemTags, fluidTags } = listResourceTags();
+  return inspectPlantWith(canonicalizePlantResources(plant, itemTags, fluidTags), findRecipe);
 }
 
 export function analyzePlantRates(plant: Plant): PlantRateAnalysis {
-  return analyzePlantRatesWith(plant, { findRecipe, requiredOperatingConditions, calculateTiming, stressImpactPerMachine });
+  const { itemTags, fluidTags } = listResourceTags();
+  return analyzePlantRatesWith(canonicalizePlantResources(plant, itemTags, fluidTags), { findRecipe, requiredOperatingConditions, calculateTiming, stressImpactPerMachine });
 }
 
 function requireRecipe(id: string): Recipe {

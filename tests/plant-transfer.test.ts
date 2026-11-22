@@ -15,3 +15,14 @@ for (const mode of ["graph", "full"] as const) {
 }
 const invalid = plantTransferYaml(plant, "graph", layout).replace('"iron"', '123');
 assert.throws(() => parsePlantTransferYaml(invalid), /Invalid resource alternatives/);
+
+const { canonicalizePlantResources, ingredientConnectionAccepts } = await import("../src/recipe-queries.ts");
+const tagPlant: Plant = { id: "tag-plant", components: [{ id: "source", kind: "supply", resource: { type: "item", id: "#logs" } }], connections: [], constraints: [] };
+const enriched = canonicalizePlantResources(tagPlant, { logs: ["iron", "copper"] }, {});
+const tagSource = enriched.components[0];
+assert.ok(tagSource.kind === "supply");
+assert.deepEqual(tagSource.resource.alternatives, ["iron", "copper"]);
+const tagIngredient = { type: "item" as const, id: "#ingredient", alternatives: ["copper", "gold"], amount: 1 };
+assert.equal(ingredientConnectionAccepts([tagIngredient], tagIngredient, tagSource.resource), true);
+assert.equal(ingredientConnectionAccepts([tagIngredient], tagIngredient, { type: "item", id: "#other", alternatives: ["silver"] }), false);
+assert.deepEqual(canonicalizePlantResources(tagPlant, {}, {}).components, tagPlant.components);
