@@ -19,3 +19,11 @@ pickers.openItemPicker({ x: 0, y: 0 }, resources);
 assert.match(element("#item-options").innerHTML, /data-item-type="fluid" data-item-id="shared"/);
 element("#item-options").handlers.click({ target: { closest: () => ({ dataset: { itemKind: "supply", itemType: "fluid", itemId: "shared" } }) } });
 assert.deepEqual(picked, { type: "fluid", id: "shared" });
+
+const displayChoice = { type: "item" as const, id: "item:iron or item:gold", alternatives: ["item:iron", "item:gold"], amount: 1 };
+const choiceRecipe = { ...recipe, inputs: [displayChoice, { type: "item" as const, id: "item:single", alternatives: ["item:single"], amount: 1 }] };
+const choices = collectRecipeItems([choiceRecipe], {}, {});
+assert.ok(!choices.some(({ id }) => id === displayChoice.id));
+assert.ok(choices.some(({ id }) => id === "item:iron"));
+assert.ok(choices.some(({ id }) => id === "item:gold"));
+assert.ok(choices.some(({ id }) => id === "item:single"));

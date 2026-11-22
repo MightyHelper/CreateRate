@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { choiceTagId, listChoiceTags } from "./recipe-choices.ts";
+import { choiceDisplayId, choiceTagId, listChoiceTags } from "./recipe-choices.ts";
 
 export type Ingredient = {
   type: "item" | "fluid";
@@ -284,7 +284,7 @@ function parseResource(value: unknown): Omit<Ingredient, "amount"> | undefined {
     });
     const alternatives = [...new Set(choices)];
     if (alternatives.length === 0) return undefined;
-    const id = alternatives.join(" or ");
+    const id = choiceDisplayId(alternatives);
     choiceTagId(alternatives);
     return { type: "item", id, alternatives };
   }

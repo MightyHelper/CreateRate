@@ -1,6 +1,7 @@
 import type { Ingredient, Recipe, RecipeOutput, TextureAnimation, MachineLayoutRules, MachineModel } from "./recipes.ts";
 import type { Plant, Resource } from "./plant.ts";
 import { resourceKey } from "./plant.ts";
+import { choiceDisplayId } from "./recipe-choices.ts";
 
 export type RecipeCatalog = { recipes: Recipe[]; itemTags: Record<string, string[]>; fluidTags: Record<string, string[]>; itemIcons: Record<string, string>; itemAnimations: Record<string, TextureAnimation>; itemModelIds: Record<string, string>; itemModels: Record<string, MachineModel>; machineModelIds: Record<string, string>; machineModels: Record<string, MachineModel>; machineLayoutRules: MachineLayoutRules };
 
@@ -66,8 +67,8 @@ export function resourcesMatch(a: Pick<Ingredient, "type" | "id" | "alternatives
 
 export function collectRecipeItems(recipes: Recipe[], itemTags: Record<string, string[]>, fluidTags: Record<string, string[]> = {}): Resource[] {
   const items = new Map<string, Resource>();
-  const add = (resource: Pick<Ingredient, "type" | "id">) => {
-    if (!resource.id.startsWith("#")) items.set(resourceKey(resource), { type: resource.type, id: resource.id });
+  const add = (resource: Pick<Ingredient, "type" | "id" | "alternatives">) => {
+    if (!resource.id.startsWith("#") && !(resource.alternatives && resource.alternatives.length > 1 && resource.id === choiceDisplayId(resource.alternatives))) items.set(resourceKey(resource), { type: resource.type, id: resource.id });
   };
   for (const recipe of recipes) {
     for (const input of recipe.inputs) {
