@@ -225,3 +225,19 @@ const flowGraph: Plant = { id: "flow", components: [{ id: "source", kind: "suppl
 const flowDeleted = deleteFlow(flowGraph, "flow-to-delete");
 assert.deepEqual(flowDeleted.plant.components.map(({ id }) => id), ["standalone"]);
 assert.deepEqual(flowDeleted.plant.constraints, [standaloneConstraint]);
+
+const mixedSources: Plant = { id: "mixed-sources", components: [
+  { id: "upstream", kind: "process", recipeId: "up" }, { id: "supply", kind: "supply", resource }, { id: "consumer", kind: "process", recipeId: "down" },
+], connections: [
+  { id: "process-in", from: port("upstream", "output"), to: port("consumer", "input") },
+  { id: "supply-in", from: port("supply", "output"), to: port("consumer", "input") },
+], constraints: [{ id: "aggregate", kind: "bound", relation: "equals", value: 10, target: { kind: "port-rate", port: port("consumer", "input") } }] };
+assert.throws(() => deletePlantSelection(mixedSources, ["consumer"], createId), /only some of its flows/);
+assert.equal(mixedSources.connections.length, 2);
+const mixedDestinations: Plant = { id: "mixed-destinations", components: [
+  { id: "producer", kind: "process", recipeId: "up" }, { id: "downstream", kind: "process", recipeId: "down" }, { id: "demand", kind: "demand", resource },
+], connections: [
+  { id: "process-out", from: port("producer", "output"), to: port("downstream", "input") },
+  { id: "demand-out", from: port("producer", "output"), to: port("demand", "input") },
+], constraints: [{ id: "aggregate", kind: "bound", relation: "equals", value: 10, target: { kind: "port-rate", port: port("producer", "output") } }] };
+assert.throws(() => deletePlantSelection(mixedDestinations, ["producer"], createId), /only some of its flows/);

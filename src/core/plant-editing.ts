@@ -310,6 +310,18 @@ export function deletePlantProcess(plant: Plant, processId: string, createId: (p
     plant.components.some((component) => component.id === edge.from.componentId && (component.kind === "process" || component.kind === "pool")));
   const outgoing = plant.connections.filter((edge) => edge.from.componentId === processId && edge.to.componentId !== processId &&
     plant.components.some((component) => component.id === edge.to.componentId && (component.kind === "process" || component.kind === "pool")));
+  for (const constraint of [...inputConstraints, ...outputConstraints]) {
+    if (constraint.target.kind !== "port-rate") continue;
+    const port = constraint.target.port;
+    const attached = plant.connections.filter((edge) => {
+      const endpoint = port.direction === "input" ? edge.to : edge.from;
+      return endpoint.componentId === processId && resourceKey(endpoint.resource) === resourceKey(port.resource);
+    });
+    const retained = port.direction === "input" ? incoming : outgoing;
+    if (attached.some((edge) => retained.includes(edge)) && attached.some((edge) => !retained.includes(edge))) {
+      throw new Error("Cannot preserve a process port constraint when only some of its flows would remain");
+    }
+  }
   const materials = new Map<string, Resource>();
   const materialKey = (edge: PlantConnection) => JSON.stringify([resourceKey(edge.to.resource), resourceKey(edge.from.resource)]);
   for (const edge of incoming) materials.set(materialKey(edge), edge.from.resource);
