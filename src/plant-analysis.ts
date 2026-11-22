@@ -1,4 +1,4 @@
-import { ingredientAccepts, recipeOutputPorts } from "./recipe-queries.ts";
+import { ingredientAccepts, ingredientForPort, recipeOutputPorts } from "./recipe-queries.ts";
 import { validateConstraintSet } from "./core/constraint-validation.ts";
 import { resourceKey } from "./plant.ts";
 import type { Plant, PlantComponent, PlantConnection, PlantConstraint, PlantQuantityRef, PortRef, Resource } from "./plant.ts";
@@ -533,8 +533,7 @@ function connectedPorts(plant: Plant, componentId: string, direction: PortRef["d
 function recipeInputPorts(plant: Plant, componentId: string, input: Ingredient, inputs: Ingredient[]): PortRef[] {
   const refs = plant.connections.flatMap((connection) => {
     const port = connection.to;
-    const exact = inputs.find((candidate) => sameResource(candidate, port.resource));
-    const matches = (exact ?? inputs.find((candidate) => ingredientAccepts(candidate, port.resource))) === input;
+    const matches = ingredientForPort(inputs, port.resource) === input;
     return port.componentId === componentId && port.direction === "input" && matches ? [port] : [];
   });
   if (refs.length === 0) {

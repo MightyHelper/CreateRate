@@ -49,6 +49,11 @@ export function ingredientAccepts(input: Pick<Ingredient, "type" | "id" | "alter
   return resourcesMatch(input, resource, {}, {});
 }
 
+export function ingredientForPort(inputs: Ingredient[], resource: Resource): Ingredient | undefined {
+  return inputs.find((input) => resourceKey(input) === resourceKey(resource))
+    ?? inputs.find((input) => ingredientAccepts(input, resource));
+}
+
 export function resourcesMatch(a: Pick<Ingredient, "type" | "id" | "alternatives">, b: Pick<Ingredient, "type" | "id" | "alternatives">, itemTags: Record<string, string[]>, fluidTags: Record<string, string[]>): boolean {
   if (a.type !== b.type) return false;
   const values = (resource: typeof a) => {

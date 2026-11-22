@@ -1,4 +1,4 @@
-import { ingredientAccepts, recipeOutputPorts, recipeOutputs } from "../recipe-queries.ts";
+import { ingredientAccepts, ingredientForPort, recipeOutputPorts, recipeOutputs } from "../recipe-queries.ts";
 import type { Recipe } from "../recipes.ts";
 import {
   addPlantComponent,
@@ -74,7 +74,7 @@ export function addPlantRecipeAtPort(plant: Plant, recipe: Recipe, port: PortRef
 }) {
   const { createId, resourcesMatch } = dependencies;
   const outputs = recipeOutputs(recipe);
-  const input = port.direction === "output" ? recipe.inputs.find((candidate) => resourcesMatch(candidate, port.resource)) : undefined;
+  const input = port.direction === "output" ? recipe.inputs.find((candidate) => resourceKey(candidate) === resourceKey(port.resource)) ?? recipe.inputs.find((candidate) => resourcesMatch(candidate, port.resource)) : undefined;
   const output = port.direction === "input" ? outputs.find((candidate) => resourcesMatch(candidate.resource, port.resource)) : undefined;
   if (port.direction === "output" && !input || port.direction === "input" && !output) {
     throw new Error(`Recipe ${recipe.id} does not match ${port.resource.id}`);
@@ -83,8 +83,8 @@ export function addPlantRecipeAtPort(plant: Plant, recipe: Recipe, port: PortRef
   const added = addPlantRecipe(plant, recipe, createId);
   let next = added.plant;
   const generatedBoundary = added.createdComponents.find((component) => port.direction === "output"
-    ? component.kind === "supply" && input && resourcesMatch(component.resource, input)
-    : component.kind === "demand" && output && resourcesMatch(component.resource, output.resource));
+    ? component.kind === "supply" && input && resourceKey(component.resource) === resourceKey(input)
+    : component.kind === "demand" && output && resourceKey(component.resource) === resourceKey(output.resource));
   const createdComponents = [...added.createdComponents];
   if (generatedBoundary) {
     next = removePlantComponent(next, generatedBoundary.id);
@@ -141,7 +141,7 @@ export function expandPlantBoundary(plant: Plant, componentId: string, recipe: R
     constraint.target.kind === "port-rate" && constraint.target.port.componentId === componentId);
   const replacement = boundary.kind === "supply"
     ? outputs.find(({ resource }) => resourcesMatch(resource, boundary.resource))
-    : recipe.inputs.find((input) => resourcesMatch(input, boundary.resource));
+    : recipe.inputs.find((input) => resourceKey(input) === resourceKey(boundary.resource)) ?? recipe.inputs.find((input) => resourcesMatch(input, boundary.resource));
   if (!replacement) throw new Error(`Recipe ${recipe.id} does not match ${boundary.resource.id}`);
 
   const removedComponentIds = [componentId];
@@ -151,7 +151,7 @@ export function expandPlantBoundary(plant: Plant, componentId: string, recipe: R
   const createdComponents = [...added.createdComponents];
   const matchingResource = "resource" in replacement ? replacement.resource : replacement;
   if (attached.length && boundary.kind === "supply") {
-    const generatedSink = createdComponents.find((component) => component.kind === "demand" && resourcesMatch(component.resource, boundary.resource));
+    const generatedSink = createdComponents.find((component) => component.kind === "demand" && resourceKey(component.resource) === resourceKey(matchingResource));
     if (generatedSink) {
       next = removePlantComponent(next, generatedSink.id);
       createdComponents.splice(createdComponents.indexOf(generatedSink), 1);
@@ -162,14 +162,13 @@ export function expandPlantBoundary(plant: Plant, componentId: string, recipe: R
       from: { componentId: added.processId, direction: "output", resource: matchingResource },
     });
   } else if (attached.length) {
-    const inputIndex = recipe.inputs.findIndex((input) => resourcesMatch(input, boundary.resource));
-    const generatedSource = createdComponents.find((component) => component.kind === "supply" && resourcesMatch(component.resource, boundary.resource));
+    const generatedSource = createdComponents.find((component) => component.kind === "supply" && resourceKey(component.resource) === resourceKey(matchingResource));
     if (generatedSource) {
       next = removePlantComponent(next, generatedSource.id);
       createdComponents.splice(createdComponents.indexOf(generatedSource), 1);
       removedComponentIds.push(generatedSource.id);
     }
-    const input = recipe.inputs[inputIndex];
+    const input = matchingResource;
     for (const edge of attached) next = connectPlantPorts(next, {
       ...edge,
       to: { componentId: added.processId, direction: "input", resource: input },
@@ -192,7 +191,7 @@ export function addPlantRecipeAtBoundary(plant: Plant, componentId: string, reci
   if (!boundary || (boundary.kind !== "supply" && boundary.kind !== "demand")) throw new Error(`Unknown resource boundary: ${componentId}`);
   const { createId, resourcesMatch } = dependencies;
   const outputs = recipeOutputs(recipe);
-  const matchingInput = boundary.kind === "supply" ? recipe.inputs.find((input) => resourcesMatch(input, boundary.resource)) : undefined;
+  const matchingInput = boundary.kind === "supply" ? recipe.inputs.find((input) => resourceKey(input) === resourceKey(boundary.resource)) ?? recipe.inputs.find((input) => resourcesMatch(input, boundary.resource)) : undefined;
   const matchingOutput = boundary.kind === "demand" ? outputs.find(({ resource }) => resourcesMatch(resource, boundary.resource)) : undefined;
   if (boundary.kind === "supply" && !matchingInput || boundary.kind === "demand" && !matchingOutput) {
     throw new Error(`Recipe ${recipe.id} does not match ${boundary.resource.id}`);
@@ -201,8 +200,8 @@ export function addPlantRecipeAtBoundary(plant: Plant, componentId: string, reci
   const added = addPlantRecipe(plant, recipe, createId);
   let next = added.plant;
   const matchingBoundary = added.createdComponents.find((component) => boundary.kind === "supply"
-    ? component.kind === "supply" && resourcesMatch(component.resource, boundary.resource)
-    : component.kind === "demand" && resourcesMatch(component.resource, boundary.resource));
+    ? component.kind === "supply" && matchingInput && resourceKey(component.resource) === resourceKey(matchingInput)
+    : component.kind === "demand" && matchingOutput && resourceKey(component.resource) === resourceKey(matchingOutput.resource));
   const createdComponents = [...added.createdComponents];
   if (matchingBoundary) {
     next = removePlantComponent(next, matchingBoundary.id);
@@ -270,7 +269,7 @@ export function duplicatePlantSelection(plant: Plant, componentIds: string[], de
     if (original?.kind !== "process" || copy?.kind !== "process") continue;
     const recipe = findRecipe(copy.recipeId);
     for (const input of recipe?.inputs ?? []) {
-      if (next.connections.some((edge) => edge.to.componentId === copyId && ingredientAccepts(input, edge.to.resource))) continue;
+      if (next.connections.some((edge) => edge.to.componentId === copyId && ingredientForPort(recipe!.inputs, edge.to.resource) === input)) continue;
       const sourceId = createId("copy-source");
       next = addPlantComponent(next, { id: sourceId, kind: "supply", resource: input });
       next = connect(next, sourceId, input, copyId, createId);

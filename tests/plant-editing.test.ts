@@ -112,3 +112,37 @@ const firstConstraint = separateResult.plant.constraints.find(({ id }) => id ===
 const secondConstraint = separateResult.plant.constraints.find(({ id }) => id === "second-rate")!;
 assert.ok(firstConstraint.target.kind === "port-rate" && secondConstraint.target.kind === "port-rate");
 assert.notEqual(firstConstraint.target.port.componentId, secondConstraint.target.port.componentId);
+
+const overlappingRecipe = { id: "consumer", inputs: [{ ...resource, amount: 1 }, { ...choice, amount: 1, alternatives: [resource.id] }], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] };
+const overlappingRecipes = new Map(recipes);
+overlappingRecipes.set("consumer", overlappingRecipe);
+const overlappingCopy = duplicatePlantSelection(variantGraph, ["producer", "consumer"], { createId, findRecipe: (id) => overlappingRecipes.get(id) as never });
+const overlappingConsumer = overlappingCopy.componentIdMap.get("consumer")!;
+const copiedInputs = overlappingCopy.plant.connections.filter((edge) => edge.to.componentId === overlappingConsumer);
+assert.equal(copiedInputs.length, 2);
+assert.deepEqual(new Set(copiedInputs.map((edge) => edge.to.resource.id)), new Set([resource.id, choice.id]));
+
+const { addPlantRecipeAtPort, addPlantRecipeAtBoundary } = await import("../src/core/plant-editing.ts");
+const { resourcesMatch } = await import("../src/recipe-queries.ts");
+const inputA = { type: "item" as const, id: "#a", alternatives: [resource.id], amount: 1 };
+const inputB = { type: "item" as const, id: "#b", alternatives: [resource.id, gold.id], amount: 1 };
+const recipeWithOverlap = { id: "overlap", inputs: [inputA, inputB], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] };
+const goldSource: Plant = { id: "source", components: [{ id: "gold-source", kind: "supply", resource: gold }], connections: [], constraints: [] };
+const matchDependencies = { createId, resourcesMatch: (a: typeof resource, b: typeof resource) => resourcesMatch(a, b, {}, {}) };
+const insertedAtPort = addPlantRecipeAtPort(goldSource, recipeWithOverlap as never, { componentId: "gold-source", direction: "output", resource: gold }, matchDependencies);
+const insertedAtSource = addPlantRecipeAtBoundary(goldSource, "gold-source", recipeWithOverlap as never, matchDependencies);
+for (const result of [insertedAtPort, insertedAtSource]) {
+  const inputs = result.plant.connections.filter((edge) => edge.to.componentId === result.processId);
+  assert.equal(inputs.filter((edge) => edge.to.resource.id === inputA.id).length, 1);
+  assert.equal(inputs.filter((edge) => edge.to.resource.id === inputB.id).length, 1);
+  assert.equal(inputs.find((edge) => edge.to.resource.id === inputB.id)?.from.componentId, "gold-source");
+}
+const goldDemand: Plant = { id: "demand", components: [{ id: "up", kind: "process", recipeId: "up" }, { id: "gold-demand", kind: "demand", resource: gold }], connections: [{ id: "gold-flow", from: { componentId: "up", direction: "output", resource: gold }, to: { componentId: "gold-demand", direction: "input", resource: gold } }], constraints: [] };
+const expandedOverlap = expandPlantBoundary(goldDemand, "gold-demand", recipeWithOverlap as never, matchDependencies);
+const expandedInputs = expandedOverlap.plant.connections.filter((edge) => edge.to.componentId === expandedOverlap.processId);
+assert.equal(expandedInputs.filter((edge) => edge.to.resource.id === inputA.id).length, 1);
+assert.equal(expandedInputs.filter((edge) => edge.to.resource.id === inputB.id).length, 1);
+assert.equal(expandedInputs.find((edge) => edge.to.resource.id === inputB.id)?.id, "gold-flow");
+const choiceSource: Plant = { id: "choice-source", components: [{ id: "choice-source", kind: "supply", resource: inputB }], connections: [], constraints: [] };
+const insertedChoice = addPlantRecipeAtBoundary(choiceSource, "choice-source", recipeWithOverlap as never, matchDependencies);
+assert.equal(insertedChoice.plant.connections.find((edge) => edge.from.componentId === "choice-source")?.to.resource.id, inputB.id);
