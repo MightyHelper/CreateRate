@@ -55,3 +55,12 @@ assert.equal(analyzeWithRecipes(boundedRpm(31), new Map([[mixer.id, mixer]])).st
 assert.notEqual(analyzeWithRecipes(boundedRpm(32), new Map([[mixer.id, mixer]])).status, "conflicting");
 const boundedStack = { ...wheelPlant, constraints: [{ id: "stack-max", kind: "bound" as const, relation: "at-most" as const, value: 0, target: { kind: "stack-size" as const, componentId: "mixer" } }] };
 assert.equal(analyzeWithRecipes(boundedStack, new Map([[wheels.id, wheels]])).status, "conflicting");
+
+const jointLimits = (count: number, stress: number) => ({ ...operatingPlant, constraints: [
+  { id: "rpm-min", kind: "bound" as const, relation: "at-least" as const, value: 32, target: { kind: "rpm" as const, componentId: "mixer" } },
+  { id: "count", kind: "bound" as const, relation: "equals" as const, value: count, target: { kind: "machine-count" as const, componentId: "mixer" } },
+  { id: "stress-max", kind: "bound" as const, relation: "at-most" as const, value: stress, target: { kind: "stress" as const, componentId: "mixer" } },
+] });
+assert.equal(analyzeWithRecipes(jointLimits(2, 1), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(jointLimits(2, 256), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(jointLimits(0, 0), new Map([[mixer.id, mixer]])).status, "conflicting");

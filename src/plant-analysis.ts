@@ -260,6 +260,15 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
       if (error instanceof InvalidOperatingCondition) addIssue(issues, `${component.id}: ${error.message}`);
       else throw error;
     }
+    const minimumBound = (kind: "rpm" | "machine-count") => Math.max(0, ...plant.constraints.flatMap((constraint) =>
+      constraint.kind === "bound" && constraint.target.kind === kind && constraint.target.componentId === component.id &&
+      (constraint.relation === "at-least" || constraint.relation === "equals") ? [constraint.value] : []));
+    const minimumRpm = minimumBound("rpm");
+    const minimumMachines = Math.ceil(minimumBound("machine-count"));
+    const maximumStress = upperBoundFor(plant, { kind: "stress", componentId: component.id });
+    if (maximumStress !== undefined && strictlyLess(maximumStress, stressImpactPerMachine(recipe) * minimumRpm * minimumMachines)) {
+      addIssue(issues, `${component.id} stress and machine-count constraints disagree`);
+    }
     if (conditions.includes("rpm") && rpm === undefined) continue;
     let machineCount = upperBoundFor(plant, { kind: "machine-count", componentId: component.id });
     const countPowerOfTwo = plant.constraints.some((constraint) => constraint.kind === "power-of-two" &&
