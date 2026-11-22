@@ -255,6 +255,7 @@ export function duplicatePlantSelection(plant: Plant, componentIds: string[], de
       id: connectionIdMap.get(edge.id)!,
       from: { ...edge.from, componentId: componentIdMap.get(edge.from.componentId)! },
       to: { ...edge.to, componentId: componentIdMap.get(edge.to.componentId)! },
+      ...(edge.secondary ? { secondary: true } : {}),
     });
   }
   for (const constraint of plant.constraints) {
@@ -269,7 +270,7 @@ export function duplicatePlantSelection(plant: Plant, componentIds: string[], de
     if (original?.kind !== "process" || copy?.kind !== "process") continue;
     const recipe = findRecipe(copy.recipeId);
     for (const input of recipe?.inputs ?? []) {
-      if (next.connections.some((edge) => edge.to.componentId === copyId && resourceKey(edge.to.resource) === resourceKey(input))) continue;
+      if (next.connections.some((edge) => edge.to.componentId === copyId && ingredientAccepts(input, edge.to.resource))) continue;
       const sourceId = createId("copy-source");
       next = addPlantComponent(next, { id: sourceId, kind: "supply", resource: input });
       next = connect(next, sourceId, input, copyId, createId);

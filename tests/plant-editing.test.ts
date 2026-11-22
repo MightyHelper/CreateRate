@@ -68,3 +68,19 @@ for (const kind of ["supply", "demand"] as const) {
   }
   assert.ok(expanded.plant.constraints.some((constraint) => constraint.id === "port-constraint" && constraint.target.kind === "port-rate" && constraint.target.port.componentId === expanded.processId));
 }
+
+const { duplicatePlantSelection } = await import("../src/core/plant-editing.ts");
+const variantGraph: Plant = { id: "variant", components: [
+  { id: "producer", kind: "process", recipeId: "producer" },
+  { id: "consumer", kind: "process", recipeId: "consumer" },
+], connections: [{ id: "secondary", from: port("producer", "output"), to: port("consumer", "input"), secondary: true }], constraints: [] };
+const recipes = new Map([
+  ["producer", { id: "producer", inputs: [], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] }],
+  ["consumer", { id: "consumer", inputs: [{ ...choice, amount: 1, alternatives: [resource.id] }], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] }],
+]);
+const copied = duplicatePlantSelection(variantGraph, ["producer", "consumer"], { createId, findRecipe: (id) => recipes.get(id) as never });
+const copyConsumer = copied.componentIdMap.get("consumer")!;
+const copyProducer = copied.componentIdMap.get("producer")!;
+const copiedEdge = copied.plant.connections.find((edge) => edge.from.componentId === copyProducer && edge.to.componentId === copyConsumer);
+assert.equal(copiedEdge?.secondary, true);
+assert.equal(copied.plant.connections.filter((edge) => edge.to.componentId === copyConsumer).length, 1);
