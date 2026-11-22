@@ -12,6 +12,7 @@ export type PlantAnalyzerDependencies = {
   calculateTiming: (recipe: Recipe, rpm: number, stackSize: number) => OperationTiming;
   stressImpactPerMachine: (recipe: Recipe) => number;
   validateOperatingConditions?: (recipe: Recipe, rpm?: number, stackSize?: number, maximums?: { rpm?: number; stackSize?: number }) => void;
+  minimumOperatingRpm?: (recipe: Recipe) => number;
 };
 
 export type PlantIssue = {
@@ -263,8 +264,11 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     const minimumBound = (kind: "rpm" | "machine-count") => Math.max(0, ...plant.constraints.flatMap((constraint) =>
       constraint.kind === "bound" && constraint.target.kind === kind && constraint.target.componentId === component.id &&
       (constraint.relation === "at-least" || constraint.relation === "equals") ? [constraint.value] : []));
-    const minimumRpm = minimumBound("rpm");
-    const minimumMachines = Math.ceil(minimumBound("machine-count"));
+    const minimumRpm = Math.max(minimumBound("rpm"), dependencies.minimumOperatingRpm?.(recipe) ?? 0);
+    let minimumMachines = Math.ceil(minimumBound("machine-count"));
+    if (plant.constraints.some((constraint) => constraint.kind === "power-of-two" && constraint.target.kind === "machine-count" && constraint.target.componentId === component.id)) {
+      minimumMachines = 2 ** Math.ceil(Math.log2(Math.max(minimumMachines, 1)));
+    }
     const maximumStress = upperBoundFor(plant, { kind: "stress", componentId: component.id });
     if (maximumStress !== undefined && strictlyLess(maximumStress, stressImpactPerMachine(recipe) * minimumRpm * minimumMachines)) {
       addIssue(issues, `${component.id} stress and machine-count constraints disagree`);

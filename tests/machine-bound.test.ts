@@ -64,3 +64,14 @@ const jointLimits = (count: number, stress: number) => ({ ...operatingPlant, con
 assert.equal(analyzeWithRecipes(jointLimits(2, 1), new Map([[mixer.id, mixer]])).status, "conflicting");
 assert.notEqual(analyzeWithRecipes(jointLimits(2, 256), new Map([[mixer.id, mixer]])).status, "conflicting");
 assert.notEqual(analyzeWithRecipes(jointLimits(0, 0), new Map([[mixer.id, mixer]])).status, "conflicting");
+
+const withoutRpm = (count: number, stress: number) => ({ ...jointLimits(count, stress), constraints: jointLimits(count, stress).constraints.filter(({ id }) => id !== "rpm-min") });
+assert.equal(analyzeWithRecipes(withoutRpm(2, 1), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(withoutRpm(2, 256), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(withoutRpm(0, 0), new Map([[mixer.id, mixer]])).status, "conflicting");
+const withPowerMinimum = (stress: number) => ({ ...jointLimits(3, stress), constraints: [
+  ...jointLimits(3, stress).constraints.map((constraint) => constraint.id === "count" ? { ...constraint, relation: "at-least" as const } : constraint),
+  { id: "power", kind: "power-of-two" as const, target: { kind: "machine-count" as const, componentId: "mixer" } },
+] });
+assert.equal(analyzeWithRecipes(withPowerMinimum(384), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(withPowerMinimum(512), new Map([[mixer.id, mixer]])).status, "conflicting");

@@ -1,5 +1,5 @@
 import { analyzePlantRates as analyze } from "../plant-analysis.ts";
-import { calculateStressImpact, calculateTiming, requiredOperatingConditions, stressImpactPerMachine, validateOperatingConditions } from "../timing.ts";
+import { calculateStressImpact, calculateTiming, minimumOperatingRpm, requiredOperatingConditions, stressImpactPerMachine, validateOperatingConditions } from "../timing.ts";
 import type { Plant } from "../plant.ts";
 import type { PlantRateAnalysis } from "../plant-analysis.ts";
 import type { Recipe } from "../recipes.ts";
@@ -12,6 +12,7 @@ export function analyzePlantRates(plant: Plant, recipes: Map<string, Recipe>): P
     calculateTiming,
     stressImpactPerMachine,
     validateOperatingConditions,
+    minimumOperatingRpm,
   });
 }
 

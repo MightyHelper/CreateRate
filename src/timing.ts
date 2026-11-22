@@ -126,6 +126,11 @@ const stackSizeMachines = new Set(["encased_fan", "crushing_wheels", "mechanical
 
 export type OperatingCondition = "rpm" | "stackSize";
 
+export function minimumOperatingRpm(recipe: Recipe): number {
+  return recipe.machine === "mechanical_mixer" ? rules.mechanicalMixer.minimumRpm
+    : recipe.machine === "mechanical_press" ? rules.mechanicalPress.minimumRpm : 0;
+}
+
 export function requiredOperatingConditions(recipe: Recipe): OperatingCondition[] {
   const machine = recipe.machine ?? "";
   return [
