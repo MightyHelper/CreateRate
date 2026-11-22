@@ -84,3 +84,16 @@ const copyProducer = copied.componentIdMap.get("producer")!;
 const copiedEdge = copied.plant.connections.find((edge) => edge.from.componentId === copyProducer && edge.to.componentId === copyConsumer);
 assert.equal(copiedEdge?.secondary, true);
 assert.equal(copied.plant.connections.filter((edge) => edge.to.componentId === copyConsumer).length, 1);
+
+const { togglePlantConnection } = await import("../src/plant.ts");
+const { splitPlantConnection } = await import("../src/core/plant-editing.ts");
+assert.throws(() => togglePlantConnection(chained, { ...chained.connections[0], id: "toggle" }), /only destination/);
+const secondFlow: Plant = { ...chained, components: [...chained.components, { id: "other-sink", kind: "demand", resource }], connections: [...chained.connections, { id: "second", from: port("upstream", "output"), to: port("other-sink", "input") }] };
+assert.equal(togglePlantConnection(secondFlow, { ...chained.connections[0], id: "toggle" }).connected, false);
+const split = splitPlantConnection(alternative, "link", createId);
+const splitSupply = split.plant.components.find(({ id }) => id === split.supplyId);
+assert.ok(splitSupply?.kind === "supply");
+assert.deepEqual(splitSupply.resource, resource);
+const splitDownstream = split.plant.connections.find(({ id }) => id === split.secondConnectionId)!;
+assert.deepEqual(splitDownstream.from.resource, resource);
+assert.deepEqual(splitDownstream.to.resource, choice);

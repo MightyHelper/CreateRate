@@ -415,10 +415,10 @@ export function splitPlantConnection(plant: Plant, connectionId: string, createI
   const demandId = createId("split-sink"), supplyId = createId("split-source");
   let next = disconnectPlantPorts(plant, connectionId);
   next = addPlantComponent(next, { id: demandId, kind: "demand", resource: edge.from.resource });
-  next = addPlantComponent(next, { id: supplyId, kind: "supply", resource: edge.to.resource });
+  next = addPlantComponent(next, { id: supplyId, kind: "supply", resource: edge.from.resource });
   const firstConnectionId = createId("flow"), secondConnectionId = createId("flow");
   next = connectPlantPorts(next, { id: firstConnectionId, from: edge.from, to: { componentId: demandId, direction: "input", resource: edge.from.resource }, ...(edge.secondary ? { secondary: true } : {}) });
-  next = connectPlantPorts(next, { id: secondConnectionId, from: { componentId: supplyId, direction: "output", resource: edge.to.resource }, to: edge.to, ...(edge.secondary ? { secondary: true } : {}) });
+  next = connectPlantPorts(next, { id: secondConnectionId, from: { componentId: supplyId, direction: "output", resource: edge.from.resource }, to: edge.to, ...(edge.secondary ? { secondary: true } : {}) });
   for (const constraint of rateConstraints) next = addPlantConstraint(next, { ...constraint, target: { kind: "connection-rate", connectionId: firstConnectionId } });
   return { plant: next, demandId, supplyId, firstConnectionId, secondConnectionId };
 }

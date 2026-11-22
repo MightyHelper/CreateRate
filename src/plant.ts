@@ -81,7 +81,7 @@ export function togglePlantConnection(plant: Plant, connection: PlantConnection)
     a.componentId === b.componentId && a.direction === b.direction && resourceKey(a.resource) === resourceKey(b.resource);
   const existing = plant.connections.find((edge) => samePort(edge.from, connection.from) && samePort(edge.to, connection.to));
   return existing
-    ? { plant: disconnectPlantPorts(plant, existing.id), connected: false }
+    ? { plant: deletePlantConnection(plant, existing.id), connected: false }
     : { plant: connectPlantPorts(plant, connection), connected: true };
 }
 
