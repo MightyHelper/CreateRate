@@ -3,7 +3,7 @@ import { resourceKey } from "../plant.ts";
 import { constraintTargetsFor, machineLayoutForRecipe, perMinuteToDisplayRate, plantProcessMetrics, plantQuantityState, rateDisplayUnit, recipeOutputPorts } from "../core/index.ts";
 import type { MachineLayout } from "../core/index.ts";
 import type { RateDisplayUnits } from "../core/index.ts";
-import { choiceTagId } from "../recipe-choices.ts";
+import { resourceChoice } from "../recipe-choices.ts";
 import type { Ingredient, MachineLayoutRules, MachineModel, MachineModelElement, Recipe, TextureAnimation } from "../recipes.ts";
 import type { PlantRateAnalysis, RateValue } from "../plant-analysis.ts";
 import { rasterizeModel } from "./model-raster.ts";
@@ -440,15 +440,14 @@ function rateText(rate: RateValue | undefined, resource: Resource, units: RateDi
   return rate.state === "conflict" ? "!" : `${formatNumber(perMinuteToDisplayRate(rate.perMinute, resource, units))} ${unit}`;
 }
 function resourceIconMarkup(resource: Pick<Ingredient, "type" | "id" | "alternatives">, state: CanvasState, className: string, x: number, y: number, size: number): string | undefined {
-  const alternatives = resource.alternatives ?? [];
-  const tagId = resource.id.startsWith("#") ? resource.id : alternatives.length > 1 ? choiceTagId(alternatives) : undefined;
+  const { tagId, members: alternatives } = resourceChoice(resource);
   const tagName = tagId?.split(":").at(-1);
   const preferred = tagName && alternatives.find((id) => id.split(":").at(-1) === tagName);
   const ids = [...new Set([resource.id, ...(preferred ? [preferred] : []), ...alternatives])];
   const keys = ids.flatMap((id) => resource.type === "fluid" ? [`${id}_still`, id, `${id}_bucket`] : [id]);
   const available = [...new Set(keys.filter((candidate) => state.itemIcons[candidate] || state.itemModelIds[candidate]))];
   if (!available.length) return undefined;
-  const members = [...new Set(alternatives)];
+  const members = alternatives;
   if (!tagId || members.length < 2) return resourceIconKeyMarkup(available[0], state, className, x, y, size);
   const memberKeys = members.map((id) => {
     const memberCandidates = resource.type === "fluid" ? [`${id}_still`, id, `${id}_bucket`] : [id];
@@ -491,9 +490,9 @@ function resourceTextureKeyMarkup(key: string, state: CanvasState, className: st
 }
 
 export function tagAttributes(resource: Pick<Ingredient, "type" | "id" | "alternatives">): string {
-  const tagId = resource.id.startsWith("#") ? resource.id : resource.alternatives && resource.alternatives.length > 1 ? choiceTagId(resource.alternatives) : undefined;
-  return tagId && resource.alternatives?.length
-    ? `data-tag-id="${esc(tagId)}" data-tag-type="${resource.type}" data-tag-alternatives="${esc(JSON.stringify(resource.alternatives))}"`
+  const { tagId, members } = resourceChoice(resource);
+  return tagId && members.length
+    ? `data-tag-id="${esc(tagId)}" data-tag-type="${resource.type}" data-tag-alternatives="${esc(JSON.stringify(members))}"`
     : "";
 }
 
@@ -774,11 +773,8 @@ function wrapProcessTitle(title: string): string[] {
 }
 function fitLabel(id: string, maxLength = 19): string { const label = short(id); return label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label; }
 function resourceLabel(resource: Pick<Ingredient, "id" | "alternatives">): string {
-  if (resource.id.startsWith("#")) return fitLabel(resource.id);
-  if (resource.alternatives && resource.alternatives.length > 1) {
-    const tagId = choiceTagId(resource.alternatives);
-    if (tagId.endsWith(":nuggets")) return fitLabel(tagId);
-  }
+  const { tagId } = resourceChoice(resource);
+  if (tagId && (resource.id.startsWith("#") || tagId.endsWith(":nuggets"))) return fitLabel(tagId);
   return fitLabel(resource.id);
 }
 function icon(id: string): string { return short(id).split(/[- _]/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(); }

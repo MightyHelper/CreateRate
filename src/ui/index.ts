@@ -4,23 +4,20 @@ import {
   addPlantRecipe,
   addPlantRecipeAtPort,
   addPlantRecipeAtBoundary,
-  bypassPlantPool,
   analyzePlantRates,
   canonicalizePlantResources,
   collectRecipeItems,
   createPlant,
-  deletePlantConnection,
-  deletePlantProcess,
+  deletePlantFlow,
+  deletePlantSelection,
   duplicatePlantSelection,
   ensurePlantOutputDestinations,
   expandPlantBoundary,
-  isLastPlantProcessOutputDestination,
   insertPoolInPlantConnection,
   loadBrowserRecipeCatalog,
   mergePlantResourceComponents,
   removeDisconnectedPlantBoundaries,
   recipesForPlantBoundary,
-  removePlantComponent,
   recipeOutputPorts,
   resourceKey,
   resourcesMatch,
@@ -420,60 +417,30 @@ function canvasState(): CanvasState {
   };
 }
 
-function deleteSelectedProcess() {
-  const component = plant.components.find(({ id }) => id === selected);
-  if (component?.kind !== "process") return;
-  const position = positions[component.id] ?? { x: 0, y: 0 };
-  const result = deletePlantProcess(plant, component.id, nextId);
-  plant = result.plant;
-  for (const id of result.removedComponentIds) {
-    delete positions[id];
-    delete portOrder[id];
-    selectedIds.delete(id);
-  }
-  result.createdInputs.forEach((input, index) => { positions[input.id] = { x: position.x, y: position.y + index * 92 }; });
-  result.createdOutputs.forEach((output, index) => { positions[output.id] = { x: position.x + 360, y: position.y + index * 92 }; });
-  selected = "";
-  save(); render();
-  setStatus(result.incomingProcessConnections
-    ? `Process deleted; ${result.outputSourceCount} output source${result.outputSourceCount === 1 ? "" : "s"} retained for downstream processes`
-    : result.inputMaterialCount ? "Process deleted; upstream outputs retained as material demands" : "Process deleted");
-}
-
 function deleteSelection() {
   if (selectedIds.size === 0 && selected && plant.connections.some(({ id }) => id === selected)) {
     try {
-      plant = deletePlantConnection(plant, selected);
-      selected = ""; pruneDisconnectedBoundaries(); save(); render(); setStatus("Flow deleted");
+      const result = deletePlantFlow(plant, selected);
+      plant = result.plant;
+      for (const id of result.removedComponentIds) { delete positions[id]; selectedIds.delete(id); }
+      selected = ""; save(); render(); setStatus("Flow deleted");
     } catch (error) { setStatus(error instanceof Error ? error.message : "Could not delete flow"); }
     return;
   }
   const ids = selectedIds.size ? [...selectedIds] : selected ? [selected] : [];
-  let deleted = 0, mergedPools = 0;
-  for (const id of ids) {
-    const component = plant.components.find((item) => item.id === id);
-    if (!component) continue;
-    if (component.kind === "process") {
-      selected = id; deleteSelectedProcess(); deleted++; continue;
-    }
-    if (component.kind === "pool") {
-      const bypassed = bypassPlantPool(plant, id, nextId);
-      if (bypassed) {
-        plant = bypassed; delete positions[id]; selectedIds.delete(id); deleted++; mergedPools++; continue;
-      }
-    }
-    if ((component.kind === "demand" || component.kind === "pool") && isLastProcessOutputDestination(id)) {
-      setStatus("Cannot delete the only destination of a process output"); continue;
-    }
-    plant = removePlantComponent(plant, id); delete positions[id]; selectedIds.delete(id); deleted++;
+  const previousPositions = { ...positions };
+  const result = deletePlantSelection(plant, ids, nextId);
+  plant = result.plant;
+  for (const id of result.removedComponentIds) { delete positions[id]; delete portOrder[id]; selectedIds.delete(id); }
+  for (const { id, result: process } of result.processes) {
+    const position = positions[id] ?? previousPositions[id] ?? { x: 0, y: 0 };
+    process.createdInputs.forEach((input, index) => { positions[input.id] = { x: position.x, y: position.y + index * 92 }; });
+    process.createdOutputs.forEach((output, index) => { positions[output.id] = { x: position.x + 360, y: position.y + index * 92 }; });
   }
   selected = selectedIds.values().next().value ?? "";
-  pruneDisconnectedBoundaries(); save(); render();
-  if (deleted > 0) setStatus(mergedPools ? `Deleted ${deleted} node${deleted === 1 ? "" : "s"}; storage flows merged` : `Deleted ${deleted} selected node${deleted === 1 ? "" : "s"}`);
-}
-
-function isLastProcessOutputDestination(componentId: string): boolean {
-  return isLastPlantProcessOutputDestination(plant, componentId);
+  save(); render();
+  if (result.deleted > 0) setStatus(result.mergedPools ? `Deleted ${result.deleted} node${result.deleted === 1 ? "" : "s"}; storage flows merged` : `Deleted ${result.deleted} selected node${result.deleted === 1 ? "" : "s"}`);
+  else if (result.blocked) setStatus("Cannot delete the only destination of a process output");
 }
 
 function pruneDisconnectedBoundaries() {

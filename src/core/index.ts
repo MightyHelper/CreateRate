@@ -17,6 +17,8 @@ export {
   addPlantRecipeAtBoundary,
   bypassPlantPool,
   deletePlantProcess,
+  deletePlantSelection,
+  deletePlantFlow,
   duplicatePlantSelection,
   expandPlantBoundary,
   ensurePlantOutputDestinations,

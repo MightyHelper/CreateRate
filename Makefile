@@ -1,10 +1,11 @@
-.PHONY: help build pages
+.PHONY: help build test pages
 
 ESBUILD ?= npx --yes --quiet esbuild@0.28.2
 
 help:
 	@printf '%s\n' \
 	  'make build' \
+	  'make test' \
 	  './build/create-rate.mjs recipes create:andesite_alloy' \
 	  './build/create-rate.mjs time create:mixing/andesite_alloy --rpm 64' \
 	  './build/create-rate.mjs rates plant.yaml' \
@@ -20,6 +21,17 @@ build:
 	$(ESBUILD) src/export-recipes.ts --bundle --platform=node --format=esm --outfile=build/export-recipes.mjs
 	node build/export-recipes.mjs
 	$(ESBUILD) src/ui/index.ts --bundle --platform=browser --format=esm --outfile=build/ui.js
+
+test:
+	mkdir -p build
+	$(ESBUILD) tests/machine-bound.test.ts --bundle --platform=node --format=esm --outfile=build/machine-bound.test.mjs
+	node build/machine-bound.test.mjs
+	$(ESBUILD) tests/plant-editing.test.ts --bundle --platform=node --format=esm --outfile=build/plant-editing.test.mjs
+	node build/plant-editing.test.mjs
+	$(ESBUILD) tests/recipe-choices.test.ts --bundle --platform=node --format=esm --outfile=build/recipe-choices.test.mjs
+	node build/recipe-choices.test.mjs
+	$(ESBUILD) tests/architecture-rules.test.ts --bundle --platform=node --format=esm --outfile=build/architecture-rules.test.mjs
+	node build/architecture-rules.test.mjs
 
 pages: build
 	mkdir -p build/site/src build/site/build build/site/data

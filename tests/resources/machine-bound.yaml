@@ -1,0 +1,266 @@
+format: "CreateRate plant"
+version: 1
+mode: "graph"
+plant:
+  id: "main"
+  components:
+    -
+      id: "sink-7a4f615b-b895-4ea5-b006-27e942944425"
+      kind: "demand"
+      resource:
+        type: "item"
+        id: "create:andesite_alloy"
+    -
+      id: "process-92b6b6e4-6c81-4ca3-b5db-f2ce67088ee6"
+      kind: "process"
+      recipeId: "create:mixing/andesite_alloy"
+    -
+      id: "process-6f9a6180-3da6-4b7f-ac6a-84164b0c5f27"
+      kind: "process"
+      recipeId: "create:compacting/andesite_from_flint"
+    -
+      id: "process-80e2a464-042c-4312-8d75-d5166395cca1"
+      kind: "process"
+      recipeId: "create:splashing/gravel"
+    -
+      id: "pool-77208e1a-99d8-4620-a433-437347d13809"
+      kind: "pool"
+      resource:
+        type: "item"
+        id: "minecraft:flint"
+    -
+      id: "process-a1a0966c-b1c5-4e8e-8fa1-c1fb81ea2ff2"
+      kind: "process"
+      recipeId: "createrate:natural/dripstone_lava"
+    -
+      id: "process-08d010bc-849c-4cc4-848a-96915c6badd6"
+      kind: "process"
+      recipeId: "createrate:adaptation/crushing/create/milling/cobblestone"
+    -
+      id: "process-1a9bcd39-e3b2-4053-b099-44f01dcf3419"
+      kind: "process"
+      recipeId: "createrate:drilling/cobblestone_generator"
+    -
+      id: "pool-9bf2f5aa-2d08-4b18-a56b-8c2096290c8c"
+      kind: "pool"
+      resource:
+        type: "item"
+        id: "minecraft:gravel"
+  connections:
+    -
+      id: "flow-e7d33a17-9a74-4dc2-bfdc-5e8afad5de5b"
+      from:
+        componentId: "process-92b6b6e4-6c81-4ca3-b5db-f2ce67088ee6"
+        direction: "output"
+        resource:
+          type: "item"
+          id: "create:andesite_alloy"
+      to:
+        componentId: "sink-7a4f615b-b895-4ea5-b006-27e942944425"
+        direction: "input"
+        resource:
+          type: "item"
+          id: "create:andesite_alloy"
+    -
+      id: "flow-aa7c8de6-dac9-417b-a619-18f32c8ecf07"
+      from:
+        componentId: "process-6f9a6180-3da6-4b7f-ac6a-84164b0c5f27"
+        direction: "output"
+        resource:
+          type: "item"
+          id: "minecraft:andesite"
+      to:
+        componentId: "process-92b6b6e4-6c81-4ca3-b5db-f2ce67088ee6"
+        direction: "input"
+        resource:
+          type: "item"
+          id: "minecraft:andesite"
+          amount: 1
+    -
+      id: "flow-9f4651d3-8985-4037-b65a-b819516fdb75"
+      from:
+        componentId: "process-80e2a464-042c-4312-8d75-d5166395cca1"
+        direction: "output"
+        resource:
+          type: "item"
+          id: "minecraft:iron_nugget"
+      to:
+        componentId: "process-92b6b6e4-6c81-4ca3-b5db-f2ce67088ee6"
+        direction: "input"
+        resource:
+          type: "item"
+          id: "minecraft:iron_nugget"
+          alternatives:
+            - "minecraft:iron_nugget"
+          amount: 1
+    -
+      id: "flow-4a5250f0-d716-4bcd-a9ff-a76110f17670"
+      from:
+        componentId: "process-80e2a464-042c-4312-8d75-d5166395cca1"
+        direction: "output"
+        resource:
+          type: "item"
+          id: "minecraft:flint"
+      to:
+        componentId: "pool-77208e1a-99d8-4620-a433-437347d13809"
+        direction: "input"
+        resource:
+          type: "item"
+          id: "minecraft:flint"
+    -
+      id: "flow-7284ea2c-420e-40e7-9b88-30a54485e3cf"
+      from:
+        componentId: "pool-77208e1a-99d8-4620-a433-437347d13809"
+        direction: "output"
+        resource:
+          type: "item"
+          id: "minecraft:flint"
+      to:
+        componentId: "process-6f9a6180-3da6-4b7f-ac6a-84164b0c5f27"
+        direction: "input"
+        resource:
+          type: "item"
+          id: "minecraft:flint"
+    -
+      id: "flow-b4c61cda-74ce-4a35-a6d9-bbce37308374"
+      from:
+        componentId: "process-a1a0966c-b1c5-4e8e-8fa1-c1fb81ea2ff2"
+        direction: "output"
+        resource:
+          type: "fluid"
+          id: "minecraft:lava"
+      to:
+        componentId: "process-6f9a6180-3da6-4b7f-ac6a-84164b0c5f27"
+        direction: "input"
+        resource:
+          type: "fluid"
+          id: "minecraft:lava"
+          amount: 100
+    -
+      id: "flow-1723ad75-8f9f-446f-92b9-32f93b75d5d0"
+      from:
+        componentId: "process-1a9bcd39-e3b2-4053-b099-44f01dcf3419"
+        direction: "output"
+        resource:
+          type: "item"
+          id: "minecraft:cobblestone"
+      to:
+        componentId: "process-08d010bc-849c-4cc4-848a-96915c6badd6"
+        direction: "input"
+        resource:
+          type: "item"
+          id: "minecraft:cobblestone"
+          amount: 1
+    -
+      id: "flow-cb1d1e15-6d8c-4319-8285-b30cc754a703"
+      from:
+        componentId: "process-08d010bc-849c-4cc4-848a-96915c6badd6"
+        direction: "output"
+        resource:
+          type: "item"
+          id: "minecraft:gravel"
+      to:
+        componentId: "pool-9bf2f5aa-2d08-4b18-a56b-8c2096290c8c"
+        direction: "input"
+        resource:
+          type: "item"
+          id: "minecraft:gravel"
+    -
+      id: "flow-5cf48117-5cb3-4c53-a67e-3ed37db6968e"
+      from:
+        componentId: "pool-9bf2f5aa-2d08-4b18-a56b-8c2096290c8c"
+        direction: "output"
+        resource:
+          type: "item"
+          id: "minecraft:gravel"
+      to:
+        componentId: "process-80e2a464-042c-4312-8d75-d5166395cca1"
+        direction: "input"
+        resource:
+          type: "item"
+          id: "minecraft:gravel"
+          amount: 1
+    -
+      id: "flow-8cbe720f-a364-41f4-be79-d5d2940f2ba9"
+      from:
+        componentId: "pool-9bf2f5aa-2d08-4b18-a56b-8c2096290c8c"
+        direction: "output"
+        resource:
+          type: "item"
+          id: "minecraft:gravel"
+      to:
+        componentId: "process-6f9a6180-3da6-4b7f-ac6a-84164b0c5f27"
+        direction: "input"
+        resource:
+          type: "item"
+          id: "minecraft:gravel"
+    -
+      id: "flow-b883979b-3fc7-4891-b9b6-5fab89567c8a"
+      from:
+        componentId: "pool-9bf2f5aa-2d08-4b18-a56b-8c2096290c8c"
+        direction: "output"
+        resource:
+          type: "item"
+          id: "minecraft:gravel"
+      to:
+        componentId: "process-6f9a6180-3da6-4b7f-ac6a-84164b0c5f27"
+        direction: "input"
+        resource:
+          type: "item"
+          id: "minecraft:gravel"
+          amount: 1
+  constraints:
+    -
+      id: "constraint-829096e4-9721-4bee-8691-496bc1945688"
+      target:
+        kind: "rpm"
+        componentId: "process-92b6b6e4-6c81-4ca3-b5db-f2ce67088ee6"
+      kind: "bound"
+      relation: "equals"
+      value: 256
+    -
+      id: "constraint-a2cf6ba4-6947-4ec8-a438-45f336f58fe5"
+      target:
+        kind: "machine-count"
+        componentId: "process-92b6b6e4-6c81-4ca3-b5db-f2ce67088ee6"
+      kind: "bound"
+      relation: "equals"
+      value: 4
+    -
+      id: "constraint-a5ba0cb2-ac0e-42e3-8e10-eb3a00141239"
+      target:
+        kind: "machine-count"
+        componentId: "process-92b6b6e4-6c81-4ca3-b5db-f2ce67088ee6"
+      kind: "integer"
+    -
+      id: "constraint-e58bcba2-4859-47c2-97b7-4438c0b447f0"
+      target:
+        kind: "rpm"
+        componentId: "process-1a9bcd39-e3b2-4053-b099-44f01dcf3419"
+      kind: "bound"
+      relation: "equals"
+      value: 256
+    -
+      id: "constraint-b7293722-8e69-4c3e-9b15-c9f0ef6fbf94"
+      target:
+        kind: "rpm"
+        componentId: "process-08d010bc-849c-4cc4-848a-96915c6badd6"
+      kind: "bound"
+      relation: "equals"
+      value: 256
+    -
+      id: "constraint-ecf7752b-a91a-4a7f-9a71-96bf6abebc25"
+      target:
+        kind: "rpm"
+        componentId: "process-80e2a464-042c-4312-8d75-d5166395cca1"
+      kind: "bound"
+      relation: "equals"
+      value: 256
+    -
+      id: "constraint-af9b7282-8f8b-4b28-989b-80f84f3a67e7"
+      target:
+        kind: "rpm"
+        componentId: "process-6f9a6180-3da6-4b7f-ac6a-84164b0c5f27"
+      kind: "bound"
+      relation: "equals"
+      value: 256

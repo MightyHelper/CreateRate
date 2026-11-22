@@ -1,3 +1,5 @@
+import { recipeOutputPorts } from "./recipe-queries.ts";
+import { validateConstraintSet } from "./core/constraint-validation.ts";
 import { resourceKey } from "./plant.ts";
 import type { Plant, PlantComponent, PlantConstraint, PlantQuantityRef, PortRef, Resource } from "./plant.ts";
 import type { Recipe } from "./recipes.ts";
@@ -98,18 +100,10 @@ export function inspectPlant(plant: Plant, findRecipe: (id: string) => Recipe | 
     const targetRef = constraints[0].target;
     const requiresInteger = targetRef.kind === "machine-count" || targetRef.kind === "stack-size" || constraints.some(({ kind }) => kind === "integer" || kind === "power-of-two");
     const requiresPowerOfTwo = constraints.some(({ kind }) => kind === "power-of-two");
-    const hasAllowedValue = (value: number) =>
-      (!requiresInteger || Number.isInteger(value)) && (!requiresPowerOfTwo || isPowerOfTwo(value));
-    if (exact.some((value) => !hasAllowedValue(value))) {
-      issues.push({ severity: "error", code: "invalid-constraint", message: `${target} equality violates its integer or power-of-two restriction` });
-      continue;
-    }
-    const lowestAllowed = requiresPowerOfTwo
-      ? 2 ** Math.ceil(Math.log2(Math.max(minimum, 1)))
-      : requiresInteger ? Math.ceil(minimum) : minimum;
-    const highestAllowed = maximum === undefined ? undefined : requiresInteger ? Math.floor(maximum) : maximum;
-    if (highestAllowed !== undefined && lowestAllowed > highestAllowed) {
-      issues.push({ severity: "error", code: "invalid-constraint", message: `${target} bounds contain no allowed integer or power-of-two value` });
+    try {
+      validateConstraintSet(exact[0], minimum, maximum, requiresInteger, requiresPowerOfTwo);
+    } catch (error) {
+      issues.push({ severity: "error", code: "invalid-constraint", message: `${target}: ${error instanceof Error ? error.message : "invalid constraint"}` });
     }
   }
   return { valid: issues.length === 0, issues };
@@ -215,14 +209,7 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
       ], `${component.id} input ratio`);
     }
 
-    const outputs = new Map<string, { resource: Resource; amount: number }>();
-    for (const output of recipe.outputs) {
-      const key = resourceKey(output.resource);
-      const current = outputs.get(key);
-      const amount = output.amount * (output.chance ?? 1);
-      outputs.set(key, { resource: output.resource, amount: (current?.amount ?? 0) + amount });
-    }
-    for (const output of outputs.values()) {
+    for (const output of recipeOutputPorts(recipe)) {
       const port = { componentId: component.id, direction: "output" as const, resource: output.resource };
       equation([
         [registerPort(port), 1],
@@ -509,7 +496,7 @@ function portExists(component: PlantComponent, port: PortRef, findRecipe: (id: s
     return recipe.inputs.some((input) => sameResource(input, port.resource) ||
       (input.type === port.resource.type && input.alternatives?.includes(port.resource.id)));
   }
-  return recipe.outputs.some((output) => sameResource(output.resource, port.resource));
+  return recipeOutputPorts(recipe).some((output) => sameResource(output.resource, port.resource));
 }
 
 function connectionResourcesMatch(connection: PlantConnection, target: PlantComponent, findRecipe: (id: string) => Recipe | undefined): boolean {

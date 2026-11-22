@@ -1,0 +1,25 @@
+import { strict as assert } from "node:assert";
+import { validateConstraintSet } from "../src/core/constraint-validation.ts";
+import { inspectPlant } from "../src/plant-analysis.ts";
+import { recipeOutputPorts, recipeOutputs } from "../src/recipe-queries.ts";
+import type { Plant, PlantConstraint } from "../src/plant.ts";
+import type { Recipe } from "../src/recipes.ts";
+
+const resource = { type: "item" as const, id: "minecraft:iron_ingot" };
+const legacy = { output: resource, outputAmount: 2 } as Recipe;
+assert.equal(recipeOutputs(legacy)[0].amount, 2);
+const recipe = { ...legacy, outputs: [{ resource, amount: 2, chance: 0.5 }, { resource, amount: 3, chance: 0.25 }] };
+assert.equal(recipeOutputPorts(recipe)[0].amount, 1.75);
+assert.equal(recipeOutputPorts(recipe)[0].outcomes.length, 2);
+assert.throws(() => validateConstraintSet(undefined, 3, 3, true, true), /no allowed/);
+assert.throws(() => validateConstraintSet(Infinity, undefined, undefined, false, false), /finite/);
+validateConstraintSet(4, 3, 5, true, true);
+const target = { kind: "machine-count" as const, componentId: "process" };
+const bound = (id: string, value: number): PlantConstraint => ({ id, target, kind: "bound", relation: "equals", value });
+const plant: Plant = { id: "p", components: [{ id: "process", kind: "process", recipeId: "r" }], connections: [], constraints: [bound("a", 2), bound("b", 3)] };
+const known = { ...recipe, id: "r", inputs: [] } as Recipe;
+assert.ok(inspectPlant(plant, () => known).issues.some(({ message }) => message.includes("conflicting constraints")));
+plant.constraints = [bound("a", 1.5)];
+assert.ok(inspectPlant(plant, () => known).issues.some(({ message }) => message.includes("integer")));
+plant.constraints = [bound("a", 4)];
+assert.equal(inspectPlant(plant, () => known).valid, true);

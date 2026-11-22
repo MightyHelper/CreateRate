@@ -19,17 +19,19 @@ export function plantProcessMetrics(plant: Plant, componentId: string, recipe: R
   const stackSize = exactValue(plant, "stack-size", componentId);
   let machineCount = exactValue(plant, "machine-count", componentId);
   let machineCountIsMinimum = false;
+  let machineCountIsMaximum = false;
   const output = recipeOutputs(recipe)[0];
   if (machineCount === undefined && recipe && output) {
     const rate = analysis?.portRates.find(({ port }) => port.componentId === componentId && port.direction === "output" && port.resource.type === output.resource.type && port.resource.id === output.resource.id)?.rate;
     const targetRate = rate && (rate.state === "constrained" || rate.state === "derived" ? rate.perMinute
-      : rate.state === "underconstrained" ? rate.minimum : undefined);
+      : rate.state === "underconstrained" ? rate.maximum ?? rate.minimum : undefined);
     if (targetRate !== undefined && targetRate > 0) {
       try {
         const capacity = calculateTiming(recipe, rpm ?? 0, stackSize ?? 1).outputPerMinute;
         if (capacity > 0) {
           machineCount = Math.ceil(targetRate / capacity);
-          machineCountIsMinimum = true;
+          machineCountIsMaximum = rate?.state === "underconstrained" && rate.maximum !== undefined;
+          machineCountIsMinimum = !machineCountIsMaximum;
         }
       } catch { /* An unavailable operating condition leaves machine count unknown. */ }
     }
@@ -39,6 +41,7 @@ export function plantProcessMetrics(plant: Plant, componentId: string, recipe: R
     rpm,
     machineCount,
     machineCountIsMinimum,
+    machineCountIsMaximum,
     stackSize,
     stress,
     requiresRpm: recipe !== undefined && recipe.processKind !== "natural",

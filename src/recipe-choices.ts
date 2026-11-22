@@ -1,5 +1,11 @@
 const choiceTags = new Map<string, string[]>();
 
+export function resourceChoice(resource: { id: string; alternatives?: string[] }) {
+  const members = [...new Set(resource.alternatives ?? [])];
+  const tagId = resource.id.startsWith("#") ? resource.id : members.length > 1 ? choiceTagId(members) : undefined;
+  return { tagId, members };
+}
+
 export function choiceTagId(alternatives: string[]): string {
   const members = [...alternatives].sort();
   const key = members.join("\0");

@@ -2,6 +2,8 @@ import { addPlantConstraint, removePlantConstraint, resourceKey } from "../plant
 import type { Plant, PlantComponent, PlantConstraint, PlantQuantityRef, Resource } from "../plant.ts";
 import type { Recipe } from "../recipes.ts";
 import { requiredOperatingConditions } from "../timing.ts";
+import { validateConstraintSet } from "./constraint-validation.ts";
+export { validateConstraintSet } from "./constraint-validation.ts";
 import { recipeOutputPorts } from "../recipe-queries.ts";
 
 export function constraintTargetsFor(component: PlantComponent, recipe?: Recipe): PlantQuantityRef[] {
@@ -52,20 +54,6 @@ export function isDiscretePlantQuantity(target: PlantQuantityRef): boolean {
   return target.kind === "machine-count" || target.kind === "stack-size";
 }
 
-export function validateConstraintSet(exact: number | undefined, minimum: number | undefined, maximum: number | undefined, integer: boolean, powerOfTwo: boolean): void {
-  if (minimum !== undefined && maximum !== undefined && minimum > maximum) throw new Error("GEQ cannot exceed LEQ");
-  if (exact !== undefined && ((minimum !== undefined && exact < minimum) || (maximum !== undefined && exact > maximum))) {
-    throw new Error("Equality must fit within the GEQ and LEQ bounds");
-  }
-  const valid = (value: number) => (!integer && !powerOfTwo || Number.isInteger(value)) && (!powerOfTwo || isPowerOfTwo(value));
-  if (exact !== undefined && !valid(exact)) throw new Error("Equality violates the selected integer or power-of-two restriction");
-  if (exact === undefined && (integer || powerOfTwo)) {
-    const lowest = powerOfTwo ? 2 ** Math.ceil(Math.log2(Math.max(minimum ?? 0, 1))) : Math.ceil(minimum ?? 0);
-    const highest = maximum === undefined ? undefined : Math.floor(maximum);
-    if (highest !== undefined && lowest > highest) throw new Error("Bounds contain no allowed integer or power-of-two value");
-  }
-}
-
 export function samePlantQuantity(a: PlantQuantityRef, b: PlantQuantityRef): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === "port-rate" && b.kind === "port-rate") return a.port.componentId === b.port.componentId && a.port.direction === b.port.direction && resourceKey(a.port.resource) === resourceKey(b.port.resource);
@@ -83,5 +71,3 @@ export function constraintUnit(target: PlantQuantityRef, plant: Plant): string {
       : undefined;
   return resource?.type === "fluid" ? "mB/min" : "items/min";
 }
-
-function isPowerOfTwo(value: number): boolean { return Number.isInteger(value) && value > 0 && 2 ** Math.round(Math.log2(value)) === value; }
