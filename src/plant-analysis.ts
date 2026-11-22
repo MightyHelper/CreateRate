@@ -515,8 +515,10 @@ function connectionResourcesMatch(connection: PlantConnection, target: PlantComp
   if (resourceKey(connection.from.resource) === resourceKey(connection.to.resource)) return true;
   if (target.kind !== "process" || connection.from.resource.type !== connection.to.resource.type) return false;
   const recipe = findRecipe(target.recipeId);
-  return recipe?.inputs.some((input) =>
-    resourceKey(input) === resourceKey(connection.to.resource) && ingredientAccepts(input, connection.from.resource)) ?? false;
+  if (!recipe) return false;
+  const input = ingredientForPort(recipe.inputs, connection.to.resource);
+  return !!input && ingredientAccepts(input, connection.from.resource) &&
+    (resourceKey(input) === resourceKey(connection.to.resource) || ingredientAccepts(connection.to.resource, connection.from.resource));
 }
 
 function sameResource(a: Resource, b: Resource): boolean {

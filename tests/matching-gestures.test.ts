@@ -36,3 +36,16 @@ let nextId = 0;
 const choiceResult = addPlantRecipeAtPort(choicePlant, choiceRecipe as never, { componentId: "s", direction: "output", resource: sourceChoice }, { createId: (prefix) => `${prefix}-${nextId++}`, resourcesMatch: (a, b) => resourcesMatch(a, b, {}, {}) });
 assert.equal(inspectPlant(choiceResult.plant, () => choiceRecipe as never).valid, true);
 assert.equal(ingredientAccepts(inputChoice, { type: "item", id: "#other", alternatives: ["gold"] }), false);
+
+const taggedOutput = { type: "item" as const, id: "#source", alternatives: ["iron"] };
+const iron = { type: "item" as const, id: "iron" };
+const gold = { type: "item" as const, id: "gold" };
+const targetRecipe = { id: "target", inputs: [{ type: "item" as const, id: "#input", alternatives: ["iron", "gold"], amount: 1 }], output: iron, outputAmount: 1, outputs: [{ resource: iron, amount: 1 }] };
+const sourceRecipe = { id: "source", inputs: [], output: taggedOutput, outputAmount: 1, outputs: [{ resource: taggedOutput, amount: 1 }] };
+const targetPlant = { id: "target-plant", components: [{ id: "target", kind: "process" as const, recipeId: "target" }], connections: [], constraints: [] };
+const inserted = addPlantRecipeAtPort(targetPlant, sourceRecipe as never, { componentId: "target", direction: "input", resource: iron }, { createId: (prefix) => `${prefix}-${nextId++}`, resourcesMatch: (a, b) => resourcesMatch(a, b, {}, {}) });
+const lookup = (id: string) => (id === "target" ? targetRecipe : sourceRecipe) as never;
+assert.equal(inspectPlant(inserted.plant, lookup).valid, true);
+const wrongSourceRecipe = { ...sourceRecipe, output: gold, outputs: [{ resource: gold, amount: 1 }] };
+const invalidPlant = { ...inserted.plant, connections: inserted.plant.connections.map((edge) => edge.to.componentId === "target" ? { ...edge, from: { ...edge.from, resource: gold } } : edge) };
+assert.ok(inspectPlant(invalidPlant, (id) => (id === "target" ? targetRecipe : wrongSourceRecipe) as never).issues.some(({ code }) => code === "resource-mismatch"));
