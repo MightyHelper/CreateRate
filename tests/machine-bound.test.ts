@@ -75,3 +75,22 @@ const withPowerMinimum = (stress: number) => ({ ...jointLimits(3, stress), const
 ] });
 assert.equal(analyzeWithRecipes(withPowerMinimum(384), new Map([[mixer.id, mixer]])).status, "conflicting");
 assert.notEqual(analyzeWithRecipes(withPowerMinimum(512), new Map([[mixer.id, mixer]])).status, "conflicting");
+
+const upperOperating = (minimumStress: number, bounded = true) => ({ ...operatingPlant, constraints: [
+  ...(bounded ? [{ id: "rpm-max", kind: "bound" as const, relation: "at-most" as const, value: 32, target: { kind: "rpm" as const, componentId: "mixer" } }] : []),
+  { id: "machine-max", kind: "bound" as const, relation: "at-most" as const, value: 2, target: { kind: "machine-count" as const, componentId: "mixer" } },
+  { id: "stress-min", kind: "bound" as const, relation: "at-least" as const, value: minimumStress, target: { kind: "stress" as const, componentId: "mixer" } },
+] });
+assert.equal(analyzeWithRecipes(upperOperating(257), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(upperOperating(256), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(upperOperating(257, false), new Map([[mixer.id, mixer]])).status, "conflicting");
+
+const discreteRpm = (stress: number, power: boolean) => ({ ...operatingPlant, constraints: [
+  { id: "rpm-min", kind: "bound" as const, relation: "at-least" as const, value: 33, target: { kind: "rpm" as const, componentId: "mixer" } },
+  { id: "count", kind: "bound" as const, relation: "equals" as const, value: 1, target: { kind: "machine-count" as const, componentId: "mixer" } },
+  { id: "stress-max", kind: "bound" as const, relation: "at-most" as const, value: stress, target: { kind: "stress" as const, componentId: "mixer" } },
+  ...(power ? [{ id: "rpm-power", kind: "power-of-two" as const, target: { kind: "rpm" as const, componentId: "mixer" } }] : []),
+] });
+assert.equal(analyzeWithRecipes(discreteRpm(132, true), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(discreteRpm(256, true), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(discreteRpm(132, false), new Map([[mixer.id, mixer]])).status, "conflicting");
