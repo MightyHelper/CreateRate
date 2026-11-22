@@ -260,7 +260,8 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
       }
       const exactStress = exactConstraintValue(plant, { kind: "stress", componentId: component.id });
       if (exactStress !== undefined) {
-        const exactStressMachineCount = exactStress / stressPerMachineAtRpm;
+        const derivedMachineCount = exactStress / stressPerMachineAtRpm;
+        const exactStressMachineCount = nearInteger(derivedMachineCount);
         if (!Number.isInteger(exactStressMachineCount)) {
           addIssue(issues, `${component.id} stress constraint implies a fractional machine count`);
         } else {
@@ -355,10 +356,6 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     const current = bounds.get(variable) ?? { minimum: 0 };
     const domain = domains.get(variable);
     if (derived && (domain?.integer || domain?.powerOfTwo)) {
-      const nearInteger = (value: number) => {
-        const rounded = Math.round(value);
-        return Number.isFinite(value) && Math.abs(value - rounded) <= Number.EPSILON * 4 * Math.max(1, Math.abs(value)) ? rounded : value;
-      };
       minimum = nearInteger(minimum);
       maximum = nearInteger(maximum);
     }
@@ -591,6 +588,11 @@ function upperBoundFor(plant: Plant, target: { kind: "machine-count" | "stress";
     constraint.target.kind === "machine-count" && constraint.target.componentId === target.componentId)
     ? maximum < 1 ? 0 : 2 ** Math.floor(Math.log2(maximum))
     : maximum;
+}
+
+function nearInteger(value: number): number {
+  const rounded = Math.round(value);
+  return Number.isFinite(value) && Math.abs(value - rounded) <= Number.EPSILON * 4 * Math.max(1, Math.abs(value)) ? rounded : value;
 }
 
 function isPowerOfTwo(value: number): boolean {

@@ -92,3 +92,10 @@ const explicitLimit: Plant = { ...boundedPlant, constraints: [...boundedPlant.co
 const explicitInput = analyzeBounded(explicitLimit).portRates.find(({ port }) => port.componentId === "process" && port.direction === "input")?.rate;
 assert.ok(explicitInput?.state === "underconstrained");
 assert.equal(explicitInput.maximum, 2);
+
+const exactStressPlant: Plant = { ...stressPlant, constraints: stressPlant.constraints.map((constraint) => constraint.id === "stress" && constraint.kind === "bound" ? { ...constraint, relation: "equals", value: 0.3 } : constraint) };
+const exactStressResult = analyzePlantRates(exactStressPlant, { findRecipe: () => stressRecipe, requiredOperatingConditions: () => ["rpm"], stressImpactPerMachine: () => 0.1, calculateTiming: () => ({ batchesPerMinute: 1, runsPerCycle: 1 } as never) });
+assert.notEqual(exactStressResult.status, "conflicting", exactStressResult.issues.join(", "));
+const fractionalStressPlant: Plant = { ...exactStressPlant, constraints: exactStressPlant.constraints.map((constraint) => constraint.id === "stress" && constraint.kind === "bound" ? { ...constraint, value: 0.31 } : constraint) };
+const fractionalStressResult = analyzePlantRates(fractionalStressPlant, { findRecipe: () => stressRecipe, requiredOperatingConditions: () => ["rpm"], stressImpactPerMachine: () => 0.1, calculateTiming: () => ({ batchesPerMinute: 1, runsPerCycle: 1 } as never) });
+assert.ok(fractionalStressResult.issues.some((issue) => issue.includes("fractional machine count")));
