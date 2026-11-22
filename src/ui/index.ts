@@ -165,7 +165,7 @@ loadBrowserRecipeCatalog().then((catalog) => {
   machineModelIds = catalog.machineModelIds;
   machineModels = catalog.machineModels;
   machineLayoutRules = catalog.machineLayoutRules;
-  knownItems = collectRecipeItems(recipes, itemTags);
+  knownItems = collectRecipeItems(recipes, itemTags, fluidTags);
   recipesById = new Map(recipes.map((recipe) => [recipe.id, recipe]));
   plant = canonicalizePlantResources(plant, itemTags, fluidTags);
   ensureOutputDestinations();

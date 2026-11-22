@@ -31,7 +31,7 @@ export function createPickers(dependencies: Dependencies) {
   $("#item-options").addEventListener("click", (event) => {
     const button = (event.target as Element).closest<HTMLButtonElement>("[data-item-kind]");
     if (!button) return;
-    const item = dependencies.getItems().find(({ id }) => id === button.dataset.itemId);
+    const item = itemOptions.find(({ id, type }) => id === button.dataset.itemId && type === button.dataset.itemType);
     if (!item) return;
     $("#item-picker").close();
     dependencies.addItem(button.dataset.itemKind as "supply" | "demand" | "pool", item, itemPosition);
@@ -76,7 +76,7 @@ export function createPickers(dependencies: Dependencies) {
         ? `<svg class="item-option-icon" viewBox="0 0 28 28" aria-hidden="true">${rendered}</svg>`
         : `<span class="item-icon-fallback">${esc(icon(item.id))}</span>`;
       const labels = { supply: "Source", demand: "Sink", pool: "Pool" };
-      return `<div class="item-option">${iconMarkup}<span>${esc(item.id)}</span>${itemKinds.map((kind) => `<button type="button" data-item-kind="${kind}" data-item-id="${esc(item.id)}">${labels[kind]}</button>`).join("")}</div>`;
+      return `<div class="item-option">${iconMarkup}<span>${esc(item.id)}${item.type === "fluid" ? " (fluid)" : ""}</span>${itemKinds.map((kind) => `<button type="button" data-item-kind="${kind}" data-item-type="${item.type}" data-item-id="${esc(item.id)}">${labels[kind]}</button>`).join("")}</div>`;
     }).join("") || `<p>No matching items</p>`;
     if (matching.length > itemLimit) {
       const more = document.createElement("button");

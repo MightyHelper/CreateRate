@@ -36,6 +36,8 @@ test:
 	node build/matching-gestures.test.mjs
 	$(ESBUILD) tests/plant-transfer.test.ts --bundle --platform=node --format=esm --outfile=build/plant-transfer.test.mjs
 	node build/plant-transfer.test.mjs
+	$(ESBUILD) tests/resource-picker.test.ts --bundle --platform=node --format=esm --outfile=build/resource-picker.test.mjs
+	node build/resource-picker.test.mjs
 
 pages: build
 	mkdir -p build/site/src build/site/build build/site/data

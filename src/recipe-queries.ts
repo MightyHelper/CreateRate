@@ -64,16 +64,23 @@ export function resourcesMatch(a: Pick<Ingredient, "type" | "id" | "alternatives
   return [...values(b)].some((value) => left.has(value));
 }
 
-export function collectRecipeItems(recipes: Recipe[], itemTags: Record<string, string[]>): Resource[] {
+export function collectRecipeItems(recipes: Recipe[], itemTags: Record<string, string[]>, fluidTags: Record<string, string[]> = {}): Resource[] {
   const items = new Map<string, Resource>();
   const add = (resource: Pick<Ingredient, "type" | "id">) => {
-    if (resource.type === "item" && !resource.id.startsWith("#")) items.set(resourceKey(resource), { type: resource.type, id: resource.id });
+    if (!resource.id.startsWith("#")) items.set(resourceKey(resource), { type: resource.type, id: resource.id });
   };
   for (const recipe of recipes) {
-    recipe.inputs.forEach(add);
-    recipeOutputs(recipe).forEach(({ resource }) => add(resource));
+    for (const input of recipe.inputs) {
+      add(input);
+      input.alternatives?.forEach((id) => add({ type: input.type, id }));
+    }
+    recipeOutputs(recipe).forEach(({ resource }) => {
+      add(resource);
+      resource.alternatives?.forEach((id) => add({ type: resource.type, id }));
+    });
   }
   for (const members of Object.values(itemTags)) members.forEach((id) => add({ type: "item", id }));
+  for (const members of Object.values(fluidTags)) members.forEach((id) => add({ type: "fluid", id }));
   return [...items.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
