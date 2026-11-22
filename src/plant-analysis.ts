@@ -255,7 +255,11 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
       constraint.target.kind === "machine-count" && constraint.target.componentId === component.id);
     const stressPerMachineAtRpm = stressImpactPerMachine(recipe) * Math.abs(rpm ?? 0);
     if (stressPerMachineAtRpm > 0) {
+      const minimumFor = (kind: "machine-count" | "stress") => Math.max(0, ...plant.constraints.flatMap((constraint) =>
+        constraint.kind === "bound" && constraint.target.kind === kind && constraint.target.componentId === component.id &&
+        (constraint.relation === "at-least" || constraint.relation === "equals") ? [constraint.value] : []));
       const stressLimit = upperBoundFor(plant, { kind: "stress", componentId: component.id });
+      const minimumCount = Math.max(minimumFor("machine-count"), Math.ceil(nearInteger(minimumFor("stress") / stressPerMachineAtRpm)));
       if (stressLimit !== undefined) {
         const stressMachineLimit = Math.floor(nearInteger(stressLimit / stressPerMachineAtRpm));
         machineCount = machineCount === undefined ? stressMachineLimit : Math.min(machineCount, stressMachineLimit);
@@ -273,9 +277,18 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
           if (exactMachineCount !== undefined && exactMachineCount !== exactStressMachineCount) {
             addIssue(issues, `${component.id} stress and machine-count constraints disagree`);
           }
+          for (const constraint of plant.constraints) {
+            if (constraint.kind !== "bound" || constraint.target.kind !== "machine-count" || constraint.target.componentId !== component.id) continue;
+            if (constraint.relation === "at-least" && exactStressMachineCount < constraint.value ||
+                constraint.relation === "at-most" && exactStressMachineCount > constraint.value) {
+              addIssue(issues, `${component.id} stress and machine-count constraints disagree`);
+            }
+          }
           machineCount = machineCount === undefined ? exactStressMachineCount : Math.min(machineCount, exactStressMachineCount);
         }
       }
+      try { validateConstraintSet(undefined, minimumCount, machineCount, true, countPowerOfTwo); }
+      catch { addIssue(issues, `${component.id} stress and machine-count constraints disagree`); }
     }
     if (machineCount === undefined) continue;
     if (countPowerOfTwo) machineCount = machineCount < 1 ? 0 : 2 ** Math.floor(Math.log2(machineCount));

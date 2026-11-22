@@ -147,3 +147,21 @@ assert.equal(powerRate.maximum, 2);
 const exactPower = (value: number): Plant => ({ ...powerStress, constraints: powerStress.constraints.map((constraint) => constraint.id === "limit" && constraint.kind === "bound" ? { ...constraint, relation: "equals", value } : constraint) });
 assert.equal(analyzePowerStress(exactPower(3)).status, "conflicting");
 assert.notEqual(analyzePowerStress(exactPower(2)).status, "conflicting");
+
+for (const [relation, count] of [["at-least", 4], ["at-most", 1]] as const) {
+  const incompatibleCount: Plant = { ...exactPower(2), constraints: [
+    ...exactPower(2).constraints.filter((constraint) => constraint.id !== "power"),
+    { id: "count-bound", kind: "bound", relation, value: count, target: { kind: "machine-count", componentId: "stress-process" } },
+  ] };
+  assert.equal(analyzePowerStress(incompatibleCount).status, "conflicting");
+}
+
+const minimumStress = (value: number): Plant => ({ ...powerStress, constraints: [
+  ...powerStress.constraints.filter((constraint) => constraint.id === "rpm"),
+  { id: "machines-max", kind: "bound", relation: "at-most", value: 2, target: { kind: "machine-count", componentId: "stress-process" } },
+  { id: "stress-min", kind: "bound", relation: "at-least", value, target: { kind: "stress", componentId: "stress-process" } },
+] });
+assert.equal(analyzePowerStress(minimumStress(3)).status, "conflicting");
+assert.notEqual(analyzePowerStress(minimumStress(2)).status, "conflicting");
+const powerGap: Plant = { ...powerStress, constraints: [...powerStress.constraints, { id: "machines-min", kind: "bound", relation: "at-least", value: 3, target: { kind: "machine-count", componentId: "stress-process" } }] };
+assert.equal(analyzePowerStress(powerGap).status, "conflicting");
