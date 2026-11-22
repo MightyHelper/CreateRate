@@ -45,6 +45,10 @@ export function recipeOutputPorts(recipe?: Recipe): Array<{ resource: RecipeOutp
   return [...outputs.values()];
 }
 
+export function ingredientAccepts(input: Pick<Ingredient, "type" | "id" | "alternatives">, resource: Resource): boolean {
+  return input.type === resource.type && (input.id === resource.id || (input.alternatives?.includes(resource.id) ?? false));
+}
+
 export function resourcesMatch(a: Pick<Ingredient, "type" | "id" | "alternatives">, b: Pick<Ingredient, "type" | "id" | "alternatives">, itemTags: Record<string, string[]>, fluidTags: Record<string, string[]>): boolean {
   if (a.type !== b.type) return false;
   const values = (resource: typeof a) => {

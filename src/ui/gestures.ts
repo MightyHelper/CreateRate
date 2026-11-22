@@ -117,10 +117,24 @@ export function gestureContextPath(target: Element | null): GestureContext[] {
   if (target?.closest("[data-edge]")) return ["arrow", "canvas"];
   if (kind === "process") return ["process", "component", "canvas"];
   if (kind === "pool") return ["pool", "component", "canvas"];
-  if (kind === "supply" || kind === "demand") return ["boundary", "component", "canvas"];
+  if (kind === "boundary") return ["boundary", "component", "canvas"];
   return ["background", "canvas"];
 }
 
 function contextLabel(context: GestureContext): string {
   return ({ canvas: "Canvas", background: "Empty canvas", component: "Node", process: "Process", boundary: "Source / sink", pool: "Storage pool", port: "Ports", arrow: "Flow", selection: "Selection", controls: "Canvas menu", constraint: "Rate", modal: "Dialog" })[context];
+}
+
+export function movedPositions(origins: Record<string, { x: number; y: number }>, ids: string[], start: { x: number; y: number }, point: { x: number; y: number }, scale: number) {
+  const dx = (point.x - start.x) / scale, dy = (point.y - start.y) / scale;
+  return Object.fromEntries(ids.flatMap((id) => origins[id] ? [[id, { x: origins[id].x + dx, y: origins[id].y + dy }]] : []));
+}
+
+export function cancelDrag<P, O>(gesture: { kind: string; origins?: Record<string, { x: number; y: number }>; initialPlant?: P; initialPositions?: Record<string, { x: number; y: number }>; initialPortOrder?: O; initialSelected?: string; initialSelectedIds?: string[] }, state: { plant: P; positions: Record<string, { x: number; y: number }>; portOrder: O; selected: string; selectedIds: string[] }) {
+  if (gesture.kind === "duplicate" && gesture.initialPlant) return {
+    plant: gesture.initialPlant, positions: gesture.initialPositions ?? state.positions,
+    portOrder: gesture.initialPortOrder ?? state.portOrder, selected: gesture.initialSelected ?? "", selectedIds: gesture.initialSelectedIds ?? [],
+  };
+  if (gesture.kind === "move") return { ...state, positions: { ...state.positions, ...gesture.origins } };
+  return state;
 }

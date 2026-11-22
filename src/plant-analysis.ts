@@ -1,4 +1,4 @@
-import { recipeOutputPorts } from "./recipe-queries.ts";
+import { ingredientAccepts, recipeOutputPorts } from "./recipe-queries.ts";
 import { validateConstraintSet } from "./core/constraint-validation.ts";
 import { resourceKey } from "./plant.ts";
 import type { Plant, PlantComponent, PlantConstraint, PlantQuantityRef, PortRef, Resource } from "./plant.ts";
@@ -493,8 +493,7 @@ function portExists(component: PlantComponent, port: PortRef, findRecipe: (id: s
   const recipe = findRecipe(component.recipeId);
   if (!recipe) return false;
   if (port.direction === "input") {
-    return recipe.inputs.some((input) => sameResource(input, port.resource) ||
-      (input.type === port.resource.type && input.alternatives?.includes(port.resource.id)));
+    return recipe.inputs.some((input) => ingredientAccepts(input, port.resource));
   }
   return recipeOutputPorts(recipe).some((output) => sameResource(output.resource, port.resource));
 }
@@ -534,8 +533,7 @@ function connectedPorts(plant: Plant, componentId: string, direction: PortRef["d
 function recipeInputPorts(plant: Plant, componentId: string, input: Ingredient): PortRef[] {
   const refs = plant.connections.flatMap((connection) => {
     const port = connection.to;
-    const matches = sameResource(input, port.resource) ||
-      (input.type === port.resource.type && input.alternatives?.includes(port.resource.id));
+    const matches = ingredientAccepts(input, port.resource);
     return port.componentId === componentId && port.direction === "input" && matches ? [port] : [];
   });
   if (refs.length === 0) {

@@ -37,7 +37,7 @@ import { connectionLanes, orderedPorts, portPoint, processGeometry, renderCanvas
 import type { CanvasState } from "./canvas.ts";
 import { getRateDisplayUnits } from "./rate-display.ts";
 import { rateDisplayUnit } from "../core/rate-units.ts";
-import { createGestureFramework, gestureContextPath as resolveGestureContext } from "./gestures.ts";
+import { cancelDrag, createGestureFramework, movedPositions, gestureContextPath as resolveGestureContext } from "./gestures.ts";
 import type { GestureContext, GestureModality, GestureState } from "./gestures.ts";
 
 type Point = { x: number; y: number };
@@ -638,12 +638,7 @@ function pointerMove(event: PointerEvent) {
       setStatus(`Duplicating ${gesture.ids.length} nodes`);
     }
     if (gesture.moved && gesture.ids && gesture.origins) {
-      const dx = (point.x - gesture.start.x) / view.scale;
-      const dy = (point.y - gesture.start.y) / view.scale;
-      for (const id of gesture.ids) {
-        const origin = gesture.origins[id];
-        if (origin) positions[id] = { x: origin.x + dx, y: origin.y + dy };
-      }
+      Object.assign(positions, movedPositions(gesture.origins, gesture.ids, gesture.start, point, view.scale));
       if (topologyChanged || scheduledDragRender !== undefined) scheduleDragRender(topologyChanged);
       else scheduleNodeMoveRender(gesture.ids);
     }
@@ -651,12 +646,8 @@ function pointerMove(event: PointerEvent) {
   }
   if (gesture.kind === "move" && gesture.id) {
     if (distance(point, gesture.start) > 4) gesture.moved = true;
-    const dx = (point.x - gesture.start.x) / view.scale;
-    const dy = (point.y - gesture.start.y) / view.scale;
-    for (const id of gesture.ids ?? [gesture.id]) {
-      const origin = gesture.origins?.[id] ?? (id === gesture.id ? gesture.origin : undefined);
-      if (origin) positions[id] = { x: origin.x + dx, y: origin.y + dy };
-    }
+    const origins = { ...gesture.origins, [gesture.id]: gesture.origins?.[gesture.id] ?? gesture.origin };
+    Object.assign(positions, movedPositions(origins, gesture.ids ?? [gesture.id], gesture.start, point, view.scale));
     scheduleNodeMoveRender(gesture.ids ?? [gesture.id]);
   } else if (gesture.kind === "pan") {
     if (distance(point, gesture.start) > 6) gesture.moved = true;
@@ -840,14 +831,10 @@ function pointerCancel(event: PointerEvent) {
 }
 
 function cancelNodeDrag() {
-  if (gesture?.kind === "duplicate" && gesture.initialPlant) {
-    plant = gesture.initialPlant;
-    positions = gesture.initialPositions ?? positions;
-    portOrder = gesture.initialPortOrder ?? portOrder;
-    selected = gesture.initialSelected ?? "";
-    selectedIds = new Set(gesture.initialSelectedIds ?? []);
-  } else if (gesture?.kind === "move") {
-    for (const [id, origin] of Object.entries(gesture.origins ?? {})) positions[id] = origin;
+  if (gesture) {
+    const restored = cancelDrag(gesture, { plant, positions, portOrder, selected, selectedIds: [...selectedIds] });
+    ({ plant, positions, portOrder, selected } = restored);
+    selectedIds = new Set(restored.selectedIds);
   }
   gesture = undefined; previewPoint = undefined; save(); render(); setStatus("Drag cancelled");
 }
