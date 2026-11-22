@@ -130,7 +130,7 @@ export function analyzePlantRates(plant: Plant, dependencies: PlantAnalyzerDepen
       const process = plant.components.find(({ id }) => id === constraint.target.port.componentId);
       if (process?.kind !== "process") continue;
       const recipe = dependencies.findRecipe(process.recipeId);
-      for (const output of recipe?.outputs ?? []) {
+      for (const output of recipeOutputPorts(recipe)) {
         surplusPorts.add(portRateVariable({ componentId: process.id, direction: "output", resource: output.resource }));
       }
     }

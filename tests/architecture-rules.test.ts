@@ -23,3 +23,23 @@ plant.constraints = [bound("a", 1.5)];
 assert.ok(inspectPlant(plant, () => known).issues.some(({ message }) => message.includes("integer")));
 plant.constraints = [bound("a", 4)];
 assert.equal(inspectPlant(plant, () => known).valid, true);
+
+const { analyzePlantRates } = await import("../src/plant-analysis.ts");
+const port = (componentId: string, direction: "input" | "output") => ({ componentId, direction, resource });
+const surplusPlant: Plant = { id: "surplus", components: [
+  { id: "supply", kind: "supply", resource }, { id: "process", kind: "process", recipeId: "r" }, { id: "demand", kind: "demand", resource },
+], connections: [
+  { id: "in", from: port("supply", "output"), to: port("process", "input") },
+  { id: "out", from: port("process", "output"), to: port("demand", "input") },
+], constraints: [
+  { id: "integer", kind: "integer", target: { kind: "port-rate", port: port("process", "input") } },
+  { id: "demand", kind: "bound", relation: "equals", value: 1.5, target: { kind: "port-rate", port: port("demand", "input") } },
+] };
+const withOutputs = { id: "r", inputs: [{ ...resource, amount: 1 }], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] } as Recipe;
+const legacyOutput = { ...withOutputs, outputs: [] };
+const analyze = (current: Recipe) => analyzePlantRates(surplusPlant, { findRecipe: () => current, requiredOperatingConditions: () => [], stressImpactPerMachine: () => 0, calculateTiming: () => { throw new Error("not needed"); } });
+const explicitResult = analyze(withOutputs);
+const legacyResult = analyze(legacyOutput);
+assert.deepEqual(legacyResult, explicitResult);
+const outputRate = legacyResult.portRates.find(({ port }) => port.componentId === "process" && port.direction === "output")?.rate;
+assert.ok(outputRate && outputRate.state !== "conflict" && outputRate.surplus === 0.5);
