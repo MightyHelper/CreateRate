@@ -34,6 +34,8 @@ test:
 	node build/architecture-rules.test.mjs
 	$(ESBUILD) tests/matching-gestures.test.ts --bundle --platform=node --format=esm --outfile=build/matching-gestures.test.mjs
 	node build/matching-gestures.test.mjs
+	$(ESBUILD) tests/plant-transfer.test.ts --bundle --platform=node --format=esm --outfile=build/plant-transfer.test.mjs
+	node build/plant-transfer.test.mjs
 
 pages: build
 	mkdir -p build/site/src build/site/build build/site/data

@@ -1,6 +1,6 @@
 import type { Ingredient } from "./recipes.ts";
 
-export type Resource = Pick<Ingredient, "type" | "id">;
+export type Resource = Pick<Ingredient, "type" | "id" | "alternatives">;
 export type PortRef = { componentId: string; direction: "input" | "output"; resource: Resource };
 
 export type PlantComponent =

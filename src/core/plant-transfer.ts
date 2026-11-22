@@ -87,7 +87,8 @@ function parseResource(value: unknown): Resource {
   if (!isRecord(value) || (value.type !== "item" && value.type !== "fluid") || !isString(value.id)) {
     throw new Error("Invalid plant resource");
   }
-  return { type: value.type, id: value.id };
+  if (value.alternatives !== undefined && !stringArray(value.alternatives)) throw new Error("Invalid resource alternatives");
+  return { type: value.type, id: value.id, ...(value.alternatives !== undefined ? { alternatives: value.alternatives } : {}) };
 }
 
 function parseConstraint(value: unknown): PlantConstraint {
