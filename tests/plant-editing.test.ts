@@ -97,3 +97,18 @@ assert.deepEqual(splitSupply.resource, resource);
 const splitDownstream = split.plant.connections.find(({ id }) => id === split.secondConnectionId)!;
 assert.deepEqual(splitDownstream.from.resource, resource);
 assert.deepEqual(splitDownstream.to.resource, choice);
+
+const separateInputs: Plant = { id: "separate", components: [
+  { id: "up1", kind: "process", recipeId: "up" }, { id: "up2", kind: "process", recipeId: "up" }, { id: "consumer", kind: "process", recipeId: "consumer" },
+], connections: [
+  { id: "first", from: port("up1", "output"), to: port("consumer", "input") },
+  { id: "second", from: port("up2", "output"), to: { componentId: "consumer", direction: "input", resource: choice } },
+], constraints: [
+  { id: "first-rate", kind: "bound", relation: "equals", value: 5, target: { kind: "port-rate", port: port("consumer", "input") } },
+  { id: "second-rate", kind: "bound", relation: "equals", value: 7, target: { kind: "port-rate", port: { componentId: "consumer", direction: "input", resource: choice } } },
+] };
+const separateResult = deletePlantSelection(separateInputs, ["consumer"], createId);
+const firstConstraint = separateResult.plant.constraints.find(({ id }) => id === "first-rate")!;
+const secondConstraint = separateResult.plant.constraints.find(({ id }) => id === "second-rate")!;
+assert.ok(firstConstraint.target.kind === "port-rate" && secondConstraint.target.kind === "port-rate");
+assert.notEqual(firstConstraint.target.port.componentId, secondConstraint.target.port.componentId);

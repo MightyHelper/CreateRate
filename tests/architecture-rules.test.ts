@@ -43,3 +43,19 @@ const legacyResult = analyze(legacyOutput);
 assert.deepEqual(legacyResult, explicitResult);
 const outputRate = legacyResult.portRates.find(({ port }) => port.componentId === "process" && port.direction === "output")?.rate;
 assert.ok(outputRate && outputRate.state !== "conflict" && outputRate.surplus === 0.5);
+
+const choiceInput = { type: "item" as const, id: "#choice", alternatives: [resource.id] };
+const overlappingRecipe = { id: "overlap", inputs: [{ ...resource, amount: 5 }, { ...choiceInput, amount: 7 }], output: resource, outputAmount: 1, outputs: [{ resource, amount: 1 }] } as Recipe;
+const overlapPlant: Plant = { id: "overlap", components: [
+  { id: "s1", kind: "supply", resource }, { id: "s2", kind: "supply", resource: choiceInput }, { id: "p", kind: "process", recipeId: "overlap" }, { id: "d", kind: "demand", resource },
+], connections: [
+  { id: "in1", from: port("s1", "output"), to: port("p", "input") },
+  { id: "in2", from: { componentId: "s2", direction: "output", resource: choiceInput }, to: { componentId: "p", direction: "input", resource: choiceInput } },
+  { id: "out", from: port("p", "output"), to: port("d", "input") },
+], constraints: [
+  { id: "r1", kind: "bound", relation: "equals", value: 5, target: { kind: "port-rate", port: port("p", "input") } },
+  { id: "r2", kind: "bound", relation: "equals", value: 7, target: { kind: "port-rate", port: { componentId: "p", direction: "input", resource: choiceInput } } },
+] };
+const overlapResult = analyzePlantRates(overlapPlant, { findRecipe: () => overlappingRecipe, requiredOperatingConditions: () => [], stressImpactPerMachine: () => 0, calculateTiming: () => { throw new Error("not needed"); } });
+assert.notEqual(overlapResult.status, "conflicting", overlapResult.issues.join(", "));
+assert.notEqual(overlapResult.status, "invalid", overlapResult.issues.join(", "));

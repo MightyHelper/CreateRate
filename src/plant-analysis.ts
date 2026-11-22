@@ -1,8 +1,8 @@
 import { ingredientAccepts, recipeOutputPorts } from "./recipe-queries.ts";
 import { validateConstraintSet } from "./core/constraint-validation.ts";
 import { resourceKey } from "./plant.ts";
-import type { Plant, PlantComponent, PlantConstraint, PlantQuantityRef, PortRef, Resource } from "./plant.ts";
-import type { Recipe } from "./recipes.ts";
+import type { Plant, PlantComponent, PlantConnection, PlantConstraint, PlantQuantityRef, PortRef, Resource } from "./plant.ts";
+import type { Ingredient, Recipe } from "./recipes.ts";
 import type { OperationTiming } from "./timing.ts";
 
 export type PlantAnalyzerDependencies = {
@@ -202,7 +202,7 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     const runVariable = `runs:${component.id}`;
     variables.add(runVariable);
     for (const input of recipe.inputs) {
-      const ports = recipeInputPorts(plant, component.id, input);
+      const ports = recipeInputPorts(plant, component.id, input, recipe.inputs);
       equation([
         ...ports.map((port) => [registerPort(port), 1] as [string, number]),
         [runVariable, -input.amount],
@@ -530,10 +530,11 @@ function connectedPorts(plant: Plant, componentId: string, direction: PortRef["d
   return [...new Map(refs.map((port) => [portRateVariable(port), port])).values()];
 }
 
-function recipeInputPorts(plant: Plant, componentId: string, input: Ingredient): PortRef[] {
+function recipeInputPorts(plant: Plant, componentId: string, input: Ingredient, inputs: Ingredient[]): PortRef[] {
   const refs = plant.connections.flatMap((connection) => {
     const port = connection.to;
-    const matches = ingredientAccepts(input, port.resource);
+    const exact = inputs.find((candidate) => sameResource(candidate, port.resource));
+    const matches = (exact ?? inputs.find((candidate) => ingredientAccepts(candidate, port.resource))) === input;
     return port.componentId === componentId && port.direction === "input" && matches ? [port] : [];
   });
   if (refs.length === 0) {
