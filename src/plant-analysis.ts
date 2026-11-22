@@ -1,3 +1,4 @@
+import { InvalidOperatingCondition } from "./core/timing-errors.ts";
 import { ingredientAccepts, ingredientConnectionAccepts, ingredientForPort, recipeOutputPorts } from "./recipe-queries.ts";
 import { validateConstraintSet } from "./core/constraint-validation.ts";
 import { resourceKey } from "./plant.ts";
@@ -289,15 +290,17 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
       try { validateConstraintSet(undefined, minimumCount, machineCount, true, countPowerOfTwo); }
       catch { addIssue(issues, `${component.id} stress and machine-count constraints disagree`); }
     }
-    if (machineCount === undefined || (conditions.includes("stackSize") && stackSize === undefined)) continue;
-    if (countPowerOfTwo) machineCount = machineCount < 1 ? 0 : 2 ** Math.floor(Math.log2(machineCount));
+    if (conditions.includes("stackSize") && stackSize === undefined) continue;
+    if (machineCount !== undefined && countPowerOfTwo) machineCount = machineCount < 1 ? 0 : 2 ** Math.floor(Math.log2(machineCount));
     try {
       const timing = calculateTiming(recipe, rpm ?? 0, stackSize ?? 1);
+      if (machineCount === undefined) continue;
       const maximumRuns = timing.batchesPerMinute * timing.runsPerCycle * machineCount;
       const current = bounds.get(runVariable) ?? { minimum: 0 };
       current.maximum = Math.min(current.maximum ?? Infinity, maximumRuns);
       bounds.set(runVariable, current);
-    } catch {
+    } catch (error) {
+      if (error instanceof InvalidOperatingCondition) addIssue(issues, `${component.id}: ${error.message}`);
       // A machine without a timing rule cannot contribute a capacity bound yet.
     }
   }

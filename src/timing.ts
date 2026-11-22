@@ -1,3 +1,4 @@
+import { InvalidOperatingCondition } from "./core/timing-errors.ts";
 import timingData from "../data/timing.json";
 import stressData from "../data/stress.json";
 import type { Recipe } from "./recipes.ts";
@@ -236,7 +237,7 @@ function valuesIn(range: OperatingRange | undefined, name: string): number[] | u
 function mixerTiming(recipe: Recipe, rpm: number): Pick<OperationTiming, "firstBatchTicks" | "cycleTicks"> {
   const config = rules.mechanicalMixer;
   if (!Number.isFinite(rpm) || rpm < config.minimumRpm) {
-    throw new Error(`Mechanical mixer requires at least ${config.minimumRpm} RPM`);
+    throw new InvalidOperatingCondition(`Mechanical mixer requires at least ${config.minimumRpm} RPM`);
   }
 
   const recipeDuration = recipe.durationTicks ?? config.defaultRecipeDurationTicks;
@@ -257,7 +258,7 @@ function mixerTiming(recipe: Recipe, rpm: number): Pick<OperationTiming, "firstB
 function pressTiming(rpm: number): Pick<OperationTiming, "firstBatchTicks" | "cycleTicks"> {
   const config = rules.mechanicalPress;
   if (!Number.isFinite(rpm) || rpm < config.minimumRpm) {
-    throw new Error(`Mechanical press requires at least ${config.minimumRpm} RPM`);
+    throw new InvalidOperatingCondition(`Mechanical press requires at least ${config.minimumRpm} RPM`);
   }
 
   const tickAdvance = Math.trunc(
@@ -279,7 +280,7 @@ function pressTiming(rpm: number): Pick<OperationTiming, "firstBatchTicks" | "cy
 
 function fanTiming(recipe: Recipe, stackSize: number): OperationTiming {
   if (!Number.isInteger(stackSize) || stackSize < 1) {
-    throw new Error("Fan stack size must be a positive whole number");
+    throw new InvalidOperatingCondition("Fan stack size must be a positive whole number");
   }
   const runsPerCycle = itemRunsPerCycle(recipe, stackSize, "Fan");
 
@@ -299,9 +300,9 @@ function fanTiming(recipe: Recipe, stackSize: number): OperationTiming {
 }
 
 function crushingWheelTiming(recipe: Recipe, rpm: number, stackSize: number): OperationTiming {
-  if (!Number.isFinite(rpm) || rpm <= 0) throw new Error("Crushing wheels require a non-zero RPM");
+  if (!Number.isFinite(rpm) || rpm <= 0) throw new InvalidOperatingCondition("Crushing wheels require a non-zero RPM");
   if (!Number.isInteger(stackSize) || stackSize < 1) {
-    throw new Error("Crushing wheel stack size must be a positive whole number");
+    throw new InvalidOperatingCondition("Crushing wheel stack size must be a positive whole number");
   }
   const runsPerCycle = itemRunsPerCycle(recipe, stackSize, "Crushing wheels");
 
@@ -327,7 +328,7 @@ function crushingWheelTiming(recipe: Recipe, rpm: number, stackSize: number): Op
 }
 
 function millstoneTiming(recipe: Recipe, rpm: number): OperationTiming {
-  if (!Number.isFinite(rpm) || rpm === 0) throw new Error("Millstone requires a non-zero RPM");
+  if (!Number.isFinite(rpm) || rpm === 0) throw new InvalidOperatingCondition("Millstone requires a non-zero RPM");
   if (!recipe.durationTicks || recipe.durationTicks <= 0) {
     throw new Error(`No recipe duration for ${recipe.method} (${recipe.id})`);
   }
@@ -344,9 +345,9 @@ function millstoneTiming(recipe: Recipe, rpm: number): OperationTiming {
 }
 
 function sawTiming(recipe: Recipe, rpm: number, stackSize: number): OperationTiming {
-  if (!Number.isFinite(rpm) || rpm === 0) throw new Error("Mechanical saw requires a non-zero RPM");
+  if (!Number.isFinite(rpm) || rpm === 0) throw new InvalidOperatingCondition("Mechanical saw requires a non-zero RPM");
   if (!Number.isInteger(stackSize) || stackSize < 1) {
-    throw new Error("Mechanical saw stack size must be a positive whole number");
+    throw new InvalidOperatingCondition("Mechanical saw stack size must be a positive whole number");
   }
   const runsPerCycle = itemRunsPerCycle(recipe, stackSize, "Mechanical saw");
 
@@ -375,7 +376,7 @@ function sawTiming(recipe: Recipe, rpm: number, stackSize: number): OperationTim
 function mechanicalDrillTiming(recipe: Recipe, rpm: number): OperationTiming {
   const config = rules.mechanicalDrill;
   const hardness = recipe.blockHardness;
-  if (!Number.isFinite(rpm) || rpm === 0) throw new Error("Mechanical drills require a non-zero RPM");
+  if (!Number.isFinite(rpm) || rpm === 0) throw new InvalidOperatingCondition("Mechanical drills require a non-zero RPM");
   if (hardness === undefined || !Number.isFinite(hardness) || hardness <= 0) {
     throw new Error(`No block hardness for ${recipe.id}`);
   }

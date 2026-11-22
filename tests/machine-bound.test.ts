@@ -29,3 +29,14 @@ const perMachine = calculateTiming(duplicateOutcomeRecipe, 256).batchesPerMinute
 const outputAnalysis = { status: "balanced" as const, issues: [], connectionRates: [], portRates: [{ port: { componentId: process.id, direction: "output" as const, resource: recipe.output }, rate: { state: "derived" as const, perMinute: perMachine * 2 } }] };
 const unconstrained = { ...plant, constraints: [{ id: "rpm", kind: "bound" as const, relation: "equals" as const, value: 256, target: { kind: "rpm" as const, componentId: process.id } }] };
 assert.equal(plantProcessMetrics(unconstrained, process.id, duplicateOutcomeRecipe, outputAnalysis).machineCount, 2);
+
+const mixer = { ...recipe, machine: "mechanical_mixer" };
+const operatingPlant = { id: "operating", components: [{ id: "mixer", kind: "process" as const, recipeId: mixer.id }], connections: [], constraints: [{ id: "rpm", kind: "bound" as const, relation: "equals" as const, value: 1, target: { kind: "rpm" as const, componentId: "mixer" } }] };
+const { analyzePlantRates: analyzeWithRecipes } = await import("../src/core/plant-analysis.ts");
+const invalidOperating = analyzeWithRecipes(operatingPlant, new Map([[mixer.id, mixer]]));
+assert.equal(invalidOperating.status, "conflicting");
+assert.ok(invalidOperating.issues.some((issue) => issue.includes("at least 32 RPM")));
+const validOperating = { ...operatingPlant, constraints: [{ ...operatingPlant.constraints[0], value: 32 }] };
+assert.notEqual(analyzeWithRecipes(validOperating, new Map([[mixer.id, mixer]])).status, "conflicting");
+const unsupported = { ...mixer, machine: "unsupported" };
+assert.notEqual(analyzeWithRecipes(operatingPlant, new Map([[unsupported.id, unsupported]])).status, "conflicting");
