@@ -253,3 +253,17 @@ for (const connectionId of [constrainedSplit.firstConnectionId, constrainedSplit
   assert.ok(constraints.some((constraint) => constraint.kind === "integer"));
 }
 assert.equal(new Set(constrainedSplit.plant.constraints.map(({ id }) => id)).size, constrainedSplit.plant.constraints.length);
+
+// Inserting and bypassing a Storage pool keeps one continuous constrained flow.
+const { bypassPlantPool, insertPoolInPlantConnection } = await import("../src/core/plant-editing.ts");
+const poolInsertion = insertPoolInPlantConnection(constrainedFlow, "link", createId);
+const insertedConstraints = poolInsertion.plant.constraints.filter((constraint) => constraint.target.kind === "connection-rate");
+assert.equal(insertedConstraints.length, 2);
+assert.ok(insertedConstraints.every((constraint) => constraint.target.kind === "connection-rate" && constraint.target.connectionId === poolInsertion.firstConnectionId));
+const poolRemoval = bypassPlantPool(poolInsertion.plant, poolInsertion.poolId, createId);
+assert.ok(poolRemoval);
+assert.equal(poolRemoval.connections.length, 1);
+assert.equal(poolRemoval.constraints.length, 2);
+assert.ok(poolRemoval.constraints.every((constraint) => constraint.target.kind === "connection-rate" && constraint.target.connectionId === poolRemoval.connections[0].id));
+assert.ok(poolRemoval.constraints.some((constraint) => constraint.kind === "bound" && constraint.relation === "equals" && constraint.value === 5));
+assert.ok(poolRemoval.constraints.some((constraint) => constraint.kind === "integer"));
