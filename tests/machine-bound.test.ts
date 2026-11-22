@@ -40,3 +40,11 @@ const validOperating = { ...operatingPlant, constraints: [{ ...operatingPlant.co
 assert.notEqual(analyzeWithRecipes(validOperating, new Map([[mixer.id, mixer]])).status, "conflicting");
 const unsupported = { ...mixer, machine: "unsupported" };
 assert.notEqual(analyzeWithRecipes(operatingPlant, new Map([[unsupported.id, unsupported]])).status, "conflicting");
+
+const wheels = { ...recipe, machine: "crushing_wheels" };
+const wheelPlant = { ...operatingPlant, components: [{ id: "mixer", kind: "process" as const, recipeId: wheels.id }], constraints: [{ ...operatingPlant.constraints[0], value: 0 }] };
+assert.equal(analyzeWithRecipes(wheelPlant, new Map([[wheels.id, wheels]])).status, "conflicting");
+const invalidStack = { ...wheelPlant, constraints: [{ id: "stack", kind: "bound" as const, relation: "equals" as const, value: 0, target: { kind: "stack-size" as const, componentId: "mixer" } }] };
+assert.equal(analyzeWithRecipes(invalidStack, new Map([[wheels.id, wheels]])).status, "conflicting");
+const unknownWheel = { ...wheelPlant, constraints: [] };
+assert.notEqual(analyzeWithRecipes(unknownWheel, new Map([[wheels.id, wheels]])).status, "conflicting");

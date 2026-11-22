@@ -31,7 +31,7 @@ import type {
   PortRef,
   Resource,
 } from "./plant.ts";
-import { calculateTiming, requiredOperatingConditions, stressImpactPerMachine } from "./timing.ts";
+import { calculateTiming, requiredOperatingConditions, stressImpactPerMachine, validateOperatingConditions } from "./timing.ts";
 import { findFeasibleTimings } from "./timing.ts";
 import type { FeasibleTimingRequest, FeasibleTimingResult, OperationTiming } from "./timing.ts";
 import { analyzePlantRates as analyzePlantRatesWith, inspectPlant as inspectPlantWith } from "./plant-analysis.ts";
@@ -169,7 +169,7 @@ export function inspectPlant(plant: Plant): PlantInspection {
 
 export function analyzePlantRates(plant: Plant): PlantRateAnalysis {
   const { itemTags, fluidTags } = listResourceTags();
-  return analyzePlantRatesWith(canonicalizePlantResources(plant, itemTags, fluidTags), { findRecipe, requiredOperatingConditions, calculateTiming, stressImpactPerMachine });
+  return analyzePlantRatesWith(canonicalizePlantResources(plant, itemTags, fluidTags), { findRecipe, requiredOperatingConditions, calculateTiming, stressImpactPerMachine, validateOperatingConditions });
 }
 
 function requireRecipe(id: string): Recipe {

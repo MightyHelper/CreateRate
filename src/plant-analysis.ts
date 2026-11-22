@@ -11,6 +11,7 @@ export type PlantAnalyzerDependencies = {
   requiredOperatingConditions: (recipe: Recipe) => Array<"rpm" | "stackSize">;
   calculateTiming: (recipe: Recipe, rpm: number, stackSize: number) => OperationTiming;
   stressImpactPerMachine: (recipe: Recipe) => number;
+  validateOperatingConditions?: (recipe: Recipe, rpm?: number, stackSize?: number) => void;
 };
 
 export type PlantIssue = {
@@ -249,6 +250,11 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     const conditions = requiredOperatingConditions(recipe);
     const rpm = exactConstraintValue(plant, { kind: "rpm", componentId: component.id });
     const stackSize = exactConstraintValue(plant, { kind: "stack-size", componentId: component.id });
+    try { dependencies.validateOperatingConditions?.(recipe, rpm, stackSize); }
+    catch (error) {
+      if (error instanceof InvalidOperatingCondition) addIssue(issues, `${component.id}: ${error.message}`);
+      else throw error;
+    }
     if (conditions.includes("rpm") && rpm === undefined) continue;
     let machineCount = upperBoundFor(plant, { kind: "machine-count", componentId: component.id });
     const countPowerOfTwo = plant.constraints.some((constraint) => constraint.kind === "power-of-two" &&

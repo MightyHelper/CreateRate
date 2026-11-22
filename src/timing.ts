@@ -134,7 +134,21 @@ export function requiredOperatingConditions(recipe: Recipe): OperatingCondition[
   ];
 }
 
+export function validateOperatingConditions(recipe: Recipe, rpm?: number, stackSize?: number): void {
+  const machine = recipe.machine ?? "";
+  if (rpm !== undefined && rpmMachines.has(machine)) {
+    if (machine === "mechanical_mixer" && (!Number.isFinite(rpm) || rpm < rules.mechanicalMixer.minimumRpm)) throw new InvalidOperatingCondition(`Mechanical mixer requires at least ${rules.mechanicalMixer.minimumRpm} RPM`);
+    if (machine === "mechanical_press" && (!Number.isFinite(rpm) || rpm < rules.mechanicalPress.minimumRpm)) throw new InvalidOperatingCondition(`Mechanical press requires at least ${rules.mechanicalPress.minimumRpm} RPM`);
+    if (machine === "crushing_wheels" && (!Number.isFinite(rpm) || rpm <= 0)) throw new InvalidOperatingCondition("Crushing wheels require a non-zero RPM");
+    if (["millstone", "mechanical_saw", "mechanical_drill"].includes(machine) && (!Number.isFinite(rpm) || rpm === 0)) throw new InvalidOperatingCondition(`${machine} requires a non-zero RPM`);
+  }
+  if (stackSize !== undefined && stackSizeMachines.has(machine) && (!Number.isInteger(stackSize) || stackSize < 1)) {
+    throw new InvalidOperatingCondition("Stack size must be a positive whole number");
+  }
+}
+
 export function calculateTiming(recipe: Recipe, rpm: number, stackSize = 1): OperationTiming {
+  validateOperatingConditions(recipe, rpm, stackSize);
   const randomTickProcess = rules.randomTickProcesses[recipe.machine ?? ""];
   if (randomTickProcess) {
     const ticksPerSuccess = rules.randomTick.blocksPerSection /
