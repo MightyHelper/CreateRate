@@ -11,7 +11,7 @@ export type PlantAnalyzerDependencies = {
   requiredOperatingConditions: (recipe: Recipe) => Array<"rpm" | "stackSize">;
   calculateTiming: (recipe: Recipe, rpm: number, stackSize: number) => OperationTiming;
   stressImpactPerMachine: (recipe: Recipe) => number;
-  validateOperatingConditions?: (recipe: Recipe, rpm?: number, stackSize?: number) => void;
+  validateOperatingConditions?: (recipe: Recipe, rpm?: number, stackSize?: number, maximums?: { rpm?: number; stackSize?: number }) => void;
 };
 
 export type PlantIssue = {
@@ -250,7 +250,12 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     const conditions = requiredOperatingConditions(recipe);
     const rpm = exactConstraintValue(plant, { kind: "rpm", componentId: component.id });
     const stackSize = exactConstraintValue(plant, { kind: "stack-size", componentId: component.id });
-    try { dependencies.validateOperatingConditions?.(recipe, rpm, stackSize); }
+    const maximumFor = (kind: "rpm" | "stack-size") => {
+      const limits = plant.constraints.flatMap((constraint) => constraint.kind === "bound" && constraint.target.kind === kind && constraint.target.componentId === component.id &&
+        (constraint.relation === "at-most" || constraint.relation === "equals") ? [constraint.value] : []);
+      return limits.length ? Math.min(...limits) : undefined;
+    };
+    try { dependencies.validateOperatingConditions?.(recipe, rpm, stackSize, { rpm: maximumFor("rpm"), stackSize: maximumFor("stack-size") }); }
     catch (error) {
       if (error instanceof InvalidOperatingCondition) addIssue(issues, `${component.id}: ${error.message}`);
       else throw error;

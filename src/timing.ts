@@ -134,8 +134,15 @@ export function requiredOperatingConditions(recipe: Recipe): OperatingCondition[
   ];
 }
 
-export function validateOperatingConditions(recipe: Recipe, rpm?: number, stackSize?: number): void {
+export function validateOperatingConditions(recipe: Recipe, rpm?: number, stackSize?: number, maximums?: { rpm?: number; stackSize?: number }): void {
   const machine = recipe.machine ?? "";
+  if (rpm === undefined && maximums?.rpm !== undefined) {
+    const minimum = machine === "mechanical_mixer" ? rules.mechanicalMixer.minimumRpm : machine === "mechanical_press" ? rules.mechanicalPress.minimumRpm : rpmMachines.has(machine) ? Number.MIN_VALUE : undefined;
+    if (minimum !== undefined && maximums.rpm < minimum) throw new InvalidOperatingCondition(`${machine} RPM range contains no valid value`);
+  }
+  if (stackSize === undefined && maximums?.stackSize !== undefined && stackSizeMachines.has(machine) && maximums.stackSize < 1) {
+    throw new InvalidOperatingCondition("Stack-size range contains no valid value");
+  }
   if (rpm !== undefined && rpmMachines.has(machine)) {
     if (machine === "mechanical_mixer" && (!Number.isFinite(rpm) || rpm < rules.mechanicalMixer.minimumRpm)) throw new InvalidOperatingCondition(`Mechanical mixer requires at least ${rules.mechanicalMixer.minimumRpm} RPM`);
     if (machine === "mechanical_press" && (!Number.isFinite(rpm) || rpm < rules.mechanicalPress.minimumRpm)) throw new InvalidOperatingCondition(`Mechanical press requires at least ${rules.mechanicalPress.minimumRpm} RPM`);

@@ -48,3 +48,10 @@ const invalidStack = { ...wheelPlant, constraints: [{ id: "stack", kind: "bound"
 assert.equal(analyzeWithRecipes(invalidStack, new Map([[wheels.id, wheels]])).status, "conflicting");
 const unknownWheel = { ...wheelPlant, constraints: [] };
 assert.notEqual(analyzeWithRecipes(unknownWheel, new Map([[wheels.id, wheels]])).status, "conflicting");
+
+const boundedRpm = (value: number) => ({ ...operatingPlant, constraints: [{ ...operatingPlant.constraints[0], relation: "at-most" as const, value }] });
+assert.equal(analyzeWithRecipes(boundedRpm(1), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.equal(analyzeWithRecipes(boundedRpm(31), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(boundedRpm(32), new Map([[mixer.id, mixer]])).status, "conflicting");
+const boundedStack = { ...wheelPlant, constraints: [{ id: "stack-max", kind: "bound" as const, relation: "at-most" as const, value: 0, target: { kind: "stack-size" as const, componentId: "mixer" } }] };
+assert.equal(analyzeWithRecipes(boundedStack, new Map([[wheels.id, wheels]])).status, "conflicting");
