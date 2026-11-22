@@ -20,3 +20,12 @@ assert.equal(metrics.machineCount, 1);
 let nextId = 0;
 const added = addPlantRecipe(createPlant("default-rpm"), recipe, (prefix) => `${prefix}-${nextId++}`);
 assert.ok(added.plant.constraints.some((constraint) => constraint.target.kind === "rpm" && constraint.target.componentId === added.processId && constraint.kind === "bound" && constraint.relation === "equals" && constraint.value === 256));
+
+const { calculateTiming } = await import("../src/timing.ts");
+const duplicateOutcomeRecipe = { ...recipe, outputs: [
+  { resource: recipe.output, amount: 1 }, { resource: recipe.output, amount: 1 },
+], outputAmount: 1 };
+const perMachine = calculateTiming(duplicateOutcomeRecipe, 256).batchesPerMinute * calculateTiming(duplicateOutcomeRecipe, 256).runsPerCycle * 2;
+const outputAnalysis = { status: "balanced" as const, issues: [], connectionRates: [], portRates: [{ port: { componentId: process.id, direction: "output" as const, resource: recipe.output }, rate: { state: "derived" as const, perMinute: perMachine * 2 } }] };
+const unconstrained = { ...plant, constraints: [{ id: "rpm", kind: "bound" as const, relation: "equals" as const, value: 256, target: { kind: "rpm" as const, componentId: process.id } }] };
+assert.equal(plantProcessMetrics(unconstrained, process.id, duplicateOutcomeRecipe, outputAnalysis).machineCount, 2);

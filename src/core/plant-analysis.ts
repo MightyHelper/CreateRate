@@ -3,7 +3,7 @@ import { calculateStressImpact, calculateTiming, requiredOperatingConditions, st
 import type { Plant } from "../plant.ts";
 import type { PlantRateAnalysis } from "../plant-analysis.ts";
 import type { Recipe } from "../recipes.ts";
-import { recipeOutputs } from "../recipe-queries.ts";
+import { recipeOutputPorts } from "../recipe-queries.ts";
 
 export function analyzePlantRates(plant: Plant, recipes: Map<string, Recipe>): PlantRateAnalysis {
   return analyze(plant, {
@@ -20,14 +20,15 @@ export function plantProcessMetrics(plant: Plant, componentId: string, recipe: R
   let machineCount = exactValue(plant, "machine-count", componentId);
   let machineCountIsMinimum = false;
   let machineCountIsMaximum = false;
-  const output = recipeOutputs(recipe)[0];
+  const output = recipeOutputPorts(recipe)[0];
   if (machineCount === undefined && recipe && output) {
     const rate = analysis?.portRates.find(({ port }) => port.componentId === componentId && port.direction === "output" && port.resource.type === output.resource.type && port.resource.id === output.resource.id)?.rate;
     const targetRate = rate && (rate.state === "constrained" || rate.state === "derived" ? rate.perMinute
       : rate.state === "underconstrained" ? rate.maximum ?? rate.minimum : undefined);
     if (targetRate !== undefined && targetRate > 0) {
       try {
-        const capacity = calculateTiming(recipe, rpm ?? 0, stackSize ?? 1).outputPerMinute;
+        const timing = calculateTiming(recipe, rpm ?? 0, stackSize ?? 1);
+        const capacity = timing.batchesPerMinute * timing.runsPerCycle * output.amount;
         if (capacity > 0) {
           machineCount = Math.ceil(targetRate / capacity);
           machineCountIsMaximum = rate?.state === "underconstrained" && rate.maximum !== undefined;
