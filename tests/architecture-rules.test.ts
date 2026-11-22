@@ -99,3 +99,38 @@ assert.notEqual(exactStressResult.status, "conflicting", exactStressResult.issue
 const fractionalStressPlant: Plant = { ...exactStressPlant, constraints: exactStressPlant.constraints.map((constraint) => constraint.id === "stress" && constraint.kind === "bound" ? { ...constraint, value: 0.31 } : constraint) };
 const fractionalStressResult = analyzePlantRates(fractionalStressPlant, { findRecipe: () => stressRecipe, requiredOperatingConditions: () => ["rpm"], stressImpactPerMachine: () => 0.1, calculateTiming: () => ({ batchesPerMinute: 1, runsPerCycle: 1 } as never) });
 assert.ok(fractionalStressResult.issues.some((issue) => issue.includes("fractional machine count")));
+
+const tinyGraph: Plant = { id: "tiny", components: [{ id: "s", kind: "supply", resource }, { id: "d", kind: "demand", resource }], connections: [{ id: "tiny-flow", from: port("s", "output"), to: port("d", "input") }], constraints: [{ id: "tiny-rate", kind: "bound", relation: "equals", value: 1e-9, target: { kind: "connection-rate", connectionId: "tiny-flow" } }] };
+const tinyResult = analyzePlantRates(tinyGraph, { findRecipe: () => undefined, requiredOperatingConditions: () => [], stressImpactPerMachine: () => 0, calculateTiming: () => { throw new Error("not needed"); } });
+assert.equal(tinyResult.status, "balanced");
+assert.deepEqual(tinyResult.connectionRates[0].rate, { state: "constrained", perMinute: 1e-9 });
+assert.ok(tinyResult.portRates.every(({ rate }) => (rate.state === "derived" || rate.state === "constrained") && rate.perMinute === 1e-9));
+const nearFraction: Plant = { ...roundedPlant, constraints: roundedPlant.constraints.map((constraint) => constraint.id === "output" && constraint.kind === "bound" ? { ...constraint, value: 0.3000000001 } : constraint) };
+const nearFractionResult = analyzePlantRates(nearFraction, { findRecipe: () => fractionalOutputRecipe, requiredOperatingConditions: () => [], stressImpactPerMachine: () => 0, calculateTiming: () => { throw new Error("not needed"); } });
+assert.notEqual(nearFractionResult.status, "balanced");
+const tinyOutputRecipe = { ...withOutputs, outputAmount: 1e-10, outputs: [{ resource, amount: 1e-10 }] };
+const tinyOutputPlant: Plant = { ...roundedPlant, constraints: [{ id: "output", kind: "bound", relation: "equals", value: 1e-9, target: { kind: "port-rate", port: port("demand", "input") } }] };
+const tinyOutputResult = analyzePlantRates(tinyOutputPlant, { findRecipe: () => tinyOutputRecipe, requiredOperatingConditions: () => [], stressImpactPerMachine: () => 0, calculateTiming: () => { throw new Error("not needed"); } });
+const tinyInput = tinyOutputResult.portRates.find(({ port }) => port.componentId === "process" && port.direction === "input")?.rate;
+assert.ok(tinyInput && (tinyInput.state === "derived" || tinyInput.state === "constrained"));
+assert.equal(tinyInput.perMinute, 10);
+
+const negativeFlow: Plant = { id: "negative", components: [
+  { id: "a", kind: "supply", resource }, { id: "b", kind: "supply", resource }, { id: "pool", kind: "pool", resource }, { id: "d", kind: "demand", resource },
+], connections: [
+  { id: "a-flow", from: port("a", "output"), to: port("pool", "input") }, { id: "b-flow", from: port("b", "output"), to: port("pool", "input") }, { id: "pool-flow", from: port("pool", "output"), to: port("d", "input") },
+], constraints: [
+  { id: "a-rate", kind: "bound", relation: "equals", value: 3e-9, target: { kind: "connection-rate", connectionId: "a-flow" } },
+  { id: "pool-rate", kind: "bound", relation: "equals", value: 2e-9, target: { kind: "connection-rate", connectionId: "pool-flow" } },
+] };
+const negativeResult = analyzePlantRates(negativeFlow, { findRecipe: () => undefined, requiredOperatingConditions: () => [], stressImpactPerMachine: () => 0, calculateTiming: () => { throw new Error("not needed"); } });
+assert.equal(negativeResult.status, "conflicting");
+
+const hugeFlow: Plant = { id: "huge", components: [{ id: "s", kind: "supply", resource }, { id: "d1", kind: "demand", resource }, { id: "d2", kind: "demand", resource }], connections: [
+  { id: "a", from: port("s", "output"), to: port("d1", "input") }, { id: "b", from: port("s", "output"), to: port("d2", "input") },
+], constraints: [
+  { id: "supply", kind: "bound", relation: "equals", value: 1e308, target: { kind: "port-rate", port: port("s", "output") } },
+  ...(["a", "b"] as const).map((id) => ({ id: `rate-${id}`, kind: "bound" as const, relation: "equals" as const, value: 1e308, target: { kind: "connection-rate" as const, connectionId: id } })),
+] };
+const hugeResult = analyzePlantRates(hugeFlow, { findRecipe: () => undefined, requiredOperatingConditions: () => [], stressImpactPerMachine: () => 0, calculateTiming: () => { throw new Error("not needed"); } });
+assert.equal(hugeResult.status, "conflicting");

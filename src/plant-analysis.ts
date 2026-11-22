@@ -255,7 +255,7 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     if (stressPerMachineAtRpm > 0) {
       const stressLimit = upperBoundFor(plant, { kind: "stress", componentId: component.id });
       if (stressLimit !== undefined) {
-        const stressMachineLimit = Math.floor(stressLimit / stressPerMachineAtRpm + 1e-8);
+        const stressMachineLimit = Math.floor(nearInteger(stressLimit / stressPerMachineAtRpm));
         machineCount = machineCount === undefined ? stressMachineLimit : Math.min(machineCount, stressMachineLimit);
       }
       const exactStress = exactConstraintValue(plant, { kind: "stress", componentId: component.id });
@@ -294,30 +294,28 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     const actualStress = stressImpactPerMachine(recipe) * Math.abs(rpm) * (machineCount ?? 0);
     for (const constraint of plant.constraints) {
       if (constraint.kind !== "bound" || constraint.target.kind !== "stress" || constraint.target.componentId !== component.id) continue;
-      const violated = constraint.relation === "equals" ? Math.abs(actualStress - constraint.value) > 1e-7
-        : constraint.relation === "at-least" ? actualStress < constraint.value - 1e-7
-          : actualStress > constraint.value + 1e-7;
+      const violated = constraint.relation === "equals" ? !nearlyEqual(actualStress, constraint.value)
+        : constraint.relation === "at-least" ? strictlyLess(actualStress, constraint.value)
+          : strictlyLess(constraint.value, actualStress);
       if (violated) addIssue(issues, `${component.id} stress usage ${actualStress} SU violates its constraint`);
     }
   }
 
   const assign = (variable: string, value: number, state: "constrained" | "derived") => {
-    if (!Number.isFinite(value) || value < -1e-8) {
+    if (!Number.isFinite(value) || value < 0) {
       addIssue(issues, `${variable} resolves to an invalid negative or non-finite rate`);
       return false;
     }
     const domain = domains.get(variable);
-    const rounded = Math.round(value);
-    const normalized = Math.abs(value) < 1e-8 ? 0
-      : state === "derived" && (domain?.integer || domain?.powerOfTwo) && Math.abs(value - rounded) < 1e-8 ? rounded
+    const normalized = state === "derived" && (domain?.integer || domain?.powerOfTwo) ? nearInteger(value)
       : value;
     const current = known.get(variable);
-    if (current && Math.abs(current.value - normalized) > 1e-7) {
+    if (current && !nearlyEqual(current.value, normalized)) {
       addIssue(issues, `${variable} has conflicting values ${current.value} and ${normalized}`);
       return false;
     }
     const bound = bounds.get(variable);
-    if (bound && (normalized < bound.minimum - 1e-7 || (bound.maximum !== undefined && normalized > bound.maximum + 1e-7))) {
+    if (bound && (strictlyLess(normalized, bound.minimum) || (bound.maximum !== undefined && strictlyLess(bound.maximum, normalized)))) {
       addIssue(issues, `${variable} rate ${normalized} violates its bounds`);
       return false;
     }
@@ -368,16 +366,16 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
       nextMinimum = Math.ceil(nextMinimum);
       if (Number.isFinite(nextMaximum)) nextMaximum = Math.floor(nextMaximum);
     }
-    if (nextMinimum > nextMaximum + 1e-8) {
+    if (strictlyLess(nextMaximum, nextMinimum)) {
       addIssue(issues, `${variable} has incompatible rate bounds`);
       return false;
     }
-    const changedMinimum = nextMinimum > current.minimum + 1e-8;
-    const changedMaximum = nextMaximum < (current.maximum ?? Infinity) - 1e-8;
+    const changedMinimum = strictlyLess(current.minimum, nextMinimum);
+    const changedMaximum = strictlyLess(nextMaximum, current.maximum ?? Infinity);
     if (!changedMinimum && !changedMaximum) return false;
     const next = { minimum: nextMinimum, ...(Number.isFinite(nextMaximum) ? { maximum: nextMaximum } : {}) };
     bounds.set(variable, next);
-    if (Number.isFinite(nextMaximum) && Math.abs(nextMaximum - nextMinimum) < 1e-8) {
+    if (Number.isFinite(nextMaximum) && nearlyEqual(nextMaximum, nextMinimum)) {
       return assign(variable, nextMinimum, "derived") || changedMinimum || changedMaximum;
     }
     return true;
@@ -401,24 +399,30 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     passes++;
     for (const relation of equations) {
       let residual = relation.constant;
+      let largestTerm = Math.abs(relation.constant);
+      let termCount = 1;
       const unresolved: Array<[string, number]> = [];
       for (const [variable, coefficient] of relation.coefficients) {
         const value = known.get(variable);
-        if (value) residual += value.value * coefficient;
+        if (value) { const term = value.value * coefficient; residual += term; largestTerm = Math.max(largestTerm, Math.abs(term)); termCount++; }
         else unresolved.push([variable, coefficient]);
+      }
+      if (!Number.isFinite(residual) || !Number.isFinite(largestTerm)) {
+        addIssue(issues, `${relation.description} exceeds numeric range`);
+        continue;
       }
       if (unresolved.length === 1) {
         const [variable, coefficient] = unresolved[0];
-        if (Math.abs(coefficient) > 1e-8 && assign(variable, -residual / coefficient, "derived")) changed = true;
-      } else if (unresolved.length === 0 && Math.abs(residual) > 1e-7) {
+        if (coefficient !== 0 && assign(variable, -residual / coefficient, "derived")) changed = true;
+      } else if (unresolved.length === 0 && Math.abs(residual) > Number.EPSILON * 16 * largestTerm * termCount) {
         addIssue(issues, `${relation.description} is inconsistent`);
       } else if (unresolved.length > 1) {
         for (const [variable, coefficient] of unresolved) {
-          if (Math.abs(coefficient) <= 1e-8) continue;
+          if (coefficient === 0) continue;
           let sumMinimum = relation.constant;
           let sumMaximum = relation.constant;
           for (const [other, otherCoefficient] of relation.coefficients) {
-            if (other === variable || Math.abs(otherCoefficient) <= 1e-8) continue;
+            if (other === variable || otherCoefficient === 0) continue;
             const range = variableBounds(other);
             const upper = range.maximum ?? Infinity;
             if (otherCoefficient > 0) {
@@ -590,9 +594,15 @@ function upperBoundFor(plant: Plant, target: { kind: "machine-count" | "stress";
     : maximum;
 }
 
+function nearlyEqual(a: number, b: number): boolean {
+  return a === b || Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= Number.EPSILON * 16 * Math.max(Math.abs(a), Math.abs(b));
+}
+
+function strictlyLess(a: number, b: number): boolean { return a < b && !nearlyEqual(a, b); }
+
 function nearInteger(value: number): number {
   const rounded = Math.round(value);
-  return Number.isFinite(value) && Math.abs(value - rounded) <= Number.EPSILON * 4 * Math.max(1, Math.abs(value)) ? rounded : value;
+  return Number.isFinite(value) && (rounded !== 0 || value === 0) && Math.abs(value - rounded) <= Number.EPSILON * 4 * Math.max(1, Math.abs(value)) ? rounded : value;
 }
 
 function isPowerOfTwo(value: number): boolean {
