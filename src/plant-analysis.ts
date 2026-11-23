@@ -651,7 +651,7 @@ function recipeInputPorts(plant: Plant, componentId: string, input: Ingredient, 
     return port.componentId === componentId && port.direction === "input" && matches ? [port] : [];
   });
   if (refs.length === 0) {
-    return [{ componentId, direction: "input", resource: { type: input.type, id: input.id } }];
+    return [{ componentId, direction: "input", resource: input }];
   }
   return [...new Map(refs.map((port) => [portRateVariable(port), port])).values()];
 }

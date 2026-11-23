@@ -27,3 +27,11 @@ assert.ok(!choices.some(({ id }) => id === displayChoice.id));
 assert.ok(choices.some(({ id }) => id === "item:iron"));
 assert.ok(choices.some(({ id }) => id === "item:gold"));
 assert.ok(choices.some(({ id }) => id === "item:single"));
+
+const paintVariants = ["yellow", "green"].map((Color) => ({ type: "fluid" as const, id: "railways:paint", nbt: { Color } }));
+pickers.openItemPicker({ x: 0, y: 0 }, paintVariants);
+assert.match(element("#item-options").innerHTML, /yellow/);
+assert.match(element("#item-options").innerHTML, /green/);
+const { resourceKey } = await import("../src/plant.ts");
+element("#item-options").handlers.click({ target: { closest: () => ({ dataset: { itemKind: "supply", itemType: "fluid", itemId: "railways:paint", itemKey: resourceKey(paintVariants[1]) } }) } });
+assert.deepEqual(picked, paintVariants[1]);

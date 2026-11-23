@@ -1,6 +1,7 @@
 import type { Ingredient } from "./recipes.ts";
+import { canonicalNbt } from "./resource-nbt.ts";
 
-export type Resource = Pick<Ingredient, "type" | "id" | "alternatives">;
+export type Resource = Pick<Ingredient, "type" | "id" | "alternatives" | "nbt">;
 export type PortRef = { componentId: string; direction: "input" | "output"; resource: Resource };
 
 export type PlantComponent =
@@ -154,7 +155,7 @@ export function removePlantConstraint(plant: Plant, constraintId: string): Plant
 }
 
 export function resourceKey(resource: Resource): string {
-  return `${resource.type}:${resource.id}`;
+  return `${resource.type}:${resource.id}${resource.nbt ? `:${canonicalNbt(resource.nbt)}` : ""}`;
 }
 
 function constraintTargets(constraint: PlantConstraint, componentId: string): boolean {

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { addPlantRecipe, analyzePlantRates, capacityForRecipe, createPlant, feasibleTimingsForRecipe, getRecipe, parsePlantTransferYaml, timingForRecipe } from "../src/core.ts";
+import { addPlantRecipe, analyzePlantRates, capacityForRecipe, createPlant, feasibleTimingsForRecipe, getRecipe, parsePlantTransferYaml, plantTransferYaml, timingForRecipe } from "../src/core.ts";
 import { plantProcessMetrics } from "../src/core/plant-analysis.ts";
 
 const plant = parsePlantTransferYaml(readFileSync(new URL("../tests/resources/machine-bound.yaml", import.meta.url), "utf8")).plant;
@@ -44,6 +44,24 @@ assert.equal(capacity.targetInputRates["item:minecraft:amethyst_block"], 150);
 const feasible = feasibleTimingsForRecipe(crushingId, { rpm: 64, stackSize: 1, targetOutputPerMinute: 500 });
 assert.equal(feasible.status, "determined");
 assert.equal(feasible.operatingPoints[0].capacityPerMachine, 525);
+
+const paint = getRecipe("railways:mixing/palettes/dye/chartreuse_from_yellow_green");
+assert.ok(paint);
+assert.equal(paint.inputs.length, 2);
+assert.deepEqual(paint.inputs.map(({ nbt, amount }) => [nbt, amount]), [[{ Color: "yellow" }, 125], [{ Color: "green" }, 125]]);
+assert.deepEqual(paint.output.nbt, { Color: "chartreuse" });
+const { ingredientAccepts, collectRecipeItems } = await import("../src/recipe-queries.ts");
+assert.equal(ingredientAccepts(paint.inputs[0], { type: "fluid", id: "railways:paint", nbt: { Color: "yellow", extra: 1 } }), true);
+assert.equal(ingredientAccepts(paint.inputs[0], paint.inputs[1]), false);
+assert.equal(ingredientAccepts({ type: "fluid", id: "railways:paint" }, paint.inputs[0]), true);
+assert.equal(collectRecipeItems([paint], {}, {}).filter(({ id }) => id === "railways:paint").length, 3);
+const paintPlant = addPlantRecipe(createPlant("paint"), paint, (prefix) => `${prefix}-${nextId++}`).plant;
+const paintAnalysis = analyzePlantRates(paintPlant);
+assert.notEqual(paintAnalysis.status, "invalid", paintAnalysis.issues.join(", "));
+assert.equal(paintAnalysis.portRates.filter(({ port }) => port.direction === "input" && port.resource.id === "railways:paint" && "nbt" in port.resource).length >= 2, true);
+const roundTrip = parsePlantTransferYaml(plantTransferYaml(paintPlant, "graph", { positions: {}, portOrder: {} })).plant;
+assert.deepEqual(roundTrip.components.filter((component) => component.kind === "supply").map((component) => component.kind === "supply" && component.resource.nbt), [{ Color: "yellow" }, { Color: "green" }]);
+assert.deepEqual(roundTrip.components.find((component) => component.kind === "demand")?.resource.nbt, { Color: "chartreuse" });
 
 const mixer = { ...recipe, machine: "mechanical_mixer" };
 const operatingPlant = { id: "operating", components: [{ id: "mixer", kind: "process" as const, recipeId: mixer.id }], connections: [], constraints: [{ id: "rpm", kind: "bound" as const, relation: "equals" as const, value: 1, target: { kind: "rpm" as const, componentId: "mixer" } }] };

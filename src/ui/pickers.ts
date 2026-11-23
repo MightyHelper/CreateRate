@@ -1,4 +1,5 @@
 import type { Resource } from "../plant.ts";
+import { resourceKey } from "../plant.ts";
 import type { Ingredient } from "../recipes.ts";
 import type { Recipe } from "../recipes.ts";
 import { recipeOutputPorts } from "../recipe-queries.ts";
@@ -31,7 +32,7 @@ export function createPickers(dependencies: Dependencies) {
   $("#item-options").addEventListener("click", (event) => {
     const button = (event.target as Element).closest<HTMLButtonElement>("[data-item-kind]");
     if (!button) return;
-    const item = itemOptions.find(({ id, type }) => id === button.dataset.itemId && type === button.dataset.itemType);
+    const item = itemOptions.find((resource) => button.dataset.itemKey ? resourceKey(resource) === button.dataset.itemKey : resource.id === button.dataset.itemId && resource.type === button.dataset.itemType);
     if (!item) return;
     $("#item-picker").close();
     dependencies.addItem(button.dataset.itemKind as "supply" | "demand" | "pool", item, itemPosition);
@@ -68,7 +69,7 @@ export function createPickers(dependencies: Dependencies) {
 
   function renderItems() {
     const query = $("#item-search").value.trim().toLowerCase();
-    const matching = itemOptions.filter((item) => `${item.id} ${short(item.id)}`.toLowerCase().includes(query));
+    const matching = itemOptions.filter((item) => `${item.id} ${short(item.id)} ${item.nbt ? JSON.stringify(item.nbt) : ""}`.toLowerCase().includes(query));
     const list = matching.slice(0, itemLimit);
     $("#item-options").innerHTML = list.map((item) => {
       const rendered = dependencies.renderResourceIcon(item);
@@ -76,7 +77,7 @@ export function createPickers(dependencies: Dependencies) {
         ? `<svg class="item-option-icon" viewBox="0 0 28 28" aria-hidden="true">${rendered}</svg>`
         : `<span class="item-icon-fallback">${esc(icon(item.id))}</span>`;
       const labels = { supply: "Source", demand: "Sink", pool: "Pool" };
-      return `<div class="item-option">${iconMarkup}<span>${esc(item.id)}${item.type === "fluid" ? " (fluid)" : ""}</span>${itemKinds.map((kind) => `<button type="button" data-item-kind="${kind}" data-item-type="${item.type}" data-item-id="${esc(item.id)}">${labels[kind]}</button>`).join("")}</div>`;
+      return `<div class="item-option">${iconMarkup}<span>${esc(item.id)}${item.nbt ? ` ${esc(JSON.stringify(item.nbt))}` : ""}${item.type === "fluid" ? " (fluid)" : ""}</span>${itemKinds.map((kind) => `<button type="button" data-item-kind="${kind}" data-item-type="${item.type}" data-item-id="${esc(item.id)}" data-item-key="${esc(resourceKey(item))}">${labels[kind]}</button>`).join("")}</div>`;
     }).join("") || `<p>No matching items</p>`;
     if (matching.length > itemLimit) {
       const more = document.createElement("button");

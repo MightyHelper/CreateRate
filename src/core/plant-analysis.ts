@@ -1,5 +1,6 @@
 import { analyzePlantRates as analyze } from "../plant-analysis.ts";
 import { calculateStressImpact, calculateTiming, minimumOperatingRpm, requiredOperatingConditions, stressImpactPerMachine, validateOperatingConditions } from "../timing.ts";
+import { resourceKey } from "../plant.ts";
 import type { Plant } from "../plant.ts";
 import type { PlantRateAnalysis } from "../plant-analysis.ts";
 import type { Recipe } from "../recipes.ts";
@@ -24,7 +25,7 @@ export function plantProcessMetrics(plant: Plant, componentId: string, recipe: R
   let machineCountIsMaximum = false;
   const output = recipeOutputPorts(recipe)[0];
   if (machineCount === undefined && recipe && output) {
-    const rate = analysis?.portRates.find(({ port }) => port.componentId === componentId && port.direction === "output" && port.resource.type === output.resource.type && port.resource.id === output.resource.id)?.rate;
+    const rate = analysis?.portRates.find(({ port }) => port.componentId === componentId && port.direction === "output" && resourceKey(port.resource) === resourceKey(output.resource))?.rate;
     const targetRate = rate && (rate.state === "constrained" || rate.state === "derived" ? rate.perMinute
       : rate.state === "underconstrained" ? rate.maximum ?? rate.minimum : undefined);
     if (targetRate !== undefined && targetRate > 0) {

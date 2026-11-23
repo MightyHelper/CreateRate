@@ -39,3 +39,18 @@ assert.equal(savedOrder.p.input[0], "item:#one");
 for (const id of ["constructor", "toString", "__proto__"]) {
   assert.deepEqual(canonicalizePortOrder({ p: { input: [`item:#${id}`] } }, {}, {}).p.input, [`item:#${id}`]);
 }
+
+const colored = { type: "fluid" as const, id: "railways:paint", nbt: { Color: "yellow" } };
+const wildcard = { type: "fluid" as const, id: "railways:paint", amount: 1 };
+const paintRecipe = { id: "paint", inputs: [wildcard], output: { ...colored, nbt: { Color: "chartreuse" } }, outputAmount: 1 };
+state.plant = { id: "paint", components: [{ id: "source", kind: "supply", resource: colored }, { id: "process", kind: "process", recipeId: "paint" }], connections: [], constraints: [] };
+state.recipesById = new Map([["paint", paintRecipe as never]]);
+state.machineLayoutRules = { blockStep: 16, basinMethods: [], basinModel: "", heaterModels: {} };
+state.machineModelIds = {};
+state.machineModels = {};
+state.svg = node() as never;
+state.pendingPort = { componentId: "source", direction: "output", resource: colored };
+state.selectedIds.clear();
+renderCanvas(state);
+assert.match(world.innerHTML, /port-dot link-active/);
+assert.match(world.innerHTML, /chartreuse/);

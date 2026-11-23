@@ -2,12 +2,15 @@ import { readFileSync } from "node:fs";
 import { resourceKey } from "./plant.ts";
 import { choiceDisplayId, choiceTagId, listChoiceTags } from "./recipe-choices.ts";
 import { tagMembers } from "./resource-tags.ts";
+import { normalizeNbt, UnsupportedNbtError } from "./resource-nbt.ts";
+import type { NbtCompound } from "./resource-nbt.ts";
 
 export { resourceKey } from "./plant.ts";
 
 export type Ingredient = {
   type: "item" | "fluid";
   id: string;
+  nbt?: NbtCompound;
   amount: number;
   alternatives?: string[];
 };
@@ -108,7 +111,13 @@ const recipesById = new Map<string, Recipe>();
 const unresolvedRecipes: UnresolvedRecipe[] = [];
 for (const entry of exported.recipes) {
   if (entry.active === false) continue;
-  const recipe = normalizeRecipe(entry.id, entry.recipe, entry.source, entry.active === null);
+  let recipe: Recipe | undefined;
+  try { recipe = normalizeRecipe(entry.id, entry.recipe, entry.source, entry.active === null); }
+  catch (error) {
+    if (!(error instanceof UnsupportedNbtError)) throw error;
+    unresolvedRecipes.push({ id: entry.id, type: String(entry.recipe.type ?? "unknown"), source: entry.source, reason: error.message });
+    continue;
+  }
   if (!recipe) {
     unresolvedRecipes.push({
       id: entry.id,
@@ -139,8 +148,7 @@ const recipes = [...recipesById.values()];
 export function findRecipesProducing(resource: string): Recipe[] {
   const type = resource.startsWith("fluid:") ? "fluid" : "item";
   const id = /^(?:item|fluid):/.test(resource) ? resource.slice(resource.indexOf(":") + 1) : resource;
-  const key = resourceKey({ type, id });
-  return recipes.filter((recipe) => recipe.outputs.some((output) => resourceKey(output.resource) === key));
+  return recipes.filter((recipe) => recipe.outputs.some((output) => output.resource.type === type && output.resource.id === id));
 }
 
 export function findRecipe(id: string): Recipe | undefined {
@@ -227,7 +235,7 @@ function normalizeWeightedOutputs(outputs: RecipeOutput[]): RecipeOutput[] {
 function parseOutputs(raw: RawRecipe): RecipeOutput[] {
   const entries = Array.isArray(raw.results) ? raw.results : raw.result === undefined ? [] : [raw.result];
   return entries.flatMap((entry: unknown) => {
-    const resource = parseResource(entry);
+    const resource = parseResource(entry, true);
     if (!resource) return [];
     const rawAmount = number((entry as RawRecipe).count ?? (entry as RawRecipe).amount ?? (entry as RawRecipe)["railways:amount"] ?? raw.count) ?? 1;
     const amount = normalizeFluidAmount(rawAmount, resource.type);
@@ -276,7 +284,7 @@ function normalizeFluidAmount(amount: number, type: "item" | "fluid"): number {
   return type === "fluid" ? amount / (exported.fluidUnitsPerMillibucket ?? 1) : amount;
 }
 
-function parseResource(value: unknown): Omit<Ingredient, "amount"> | undefined {
+function parseResource(value: unknown, output = false): Omit<Ingredient, "amount"> | undefined {
   if (Array.isArray(value)) {
     const choices = value.flatMap((entry) => {
       const resource = parseResource(entry);
@@ -294,7 +302,10 @@ function parseResource(value: unknown): Omit<Ingredient, "amount"> | undefined {
   const raw = value as RawRecipe;
   if (typeof raw.item === "string") return { type: "item", id: raw.item };
   if (typeof raw.tag === "string") return resourceFromTag("item", raw.tag, exported.itemTags);
-  if (typeof raw.fluid === "string") return { type: "fluid", id: raw.fluid };
+  if (typeof raw.fluid === "string") {
+    const nbt = normalizeNbt(raw.nbt, output);
+    return { type: "fluid", id: raw.fluid, ...(nbt ? { nbt } : {}) };
+  }
   if (typeof raw.fluidTag === "string") return resourceFromTag("fluid", raw.fluidTag, exported.fluidTags);
   return undefined;
 }

@@ -3,6 +3,7 @@ import type { Plant, Resource } from "./plant.ts";
 import { resourceKey } from "./plant.ts";
 import { choiceDisplayId } from "./recipe-choices.ts";
 import { tagMembers } from "./resource-tags.ts";
+import { nbtContains } from "./resource-nbt.ts";
 
 export type RecipeCatalog = { recipes: Recipe[]; itemTags: Record<string, string[]>; fluidTags: Record<string, string[]>; itemIcons: Record<string, string>; itemAnimations: Record<string, TextureAnimation>; itemModelIds: Record<string, string>; itemModels: Record<string, MachineModel>; machineModelIds: Record<string, string>; machineModels: Record<string, MachineModel>; machineLayoutRules: MachineLayoutRules };
 
@@ -51,25 +52,29 @@ export function primaryOutputAmount(recipe: Recipe): number {
   return recipeOutputPorts(recipe).find(({ resource }) => resourceKey(resource) === resourceKey(recipe.output))?.amount ?? recipe.outputAmount;
 }
 
-export function ingredientAccepts(input: Pick<Ingredient, "type" | "id" | "alternatives">, resource: Resource): boolean {
-  return resourcesMatch(input, resource, {}, {});
+export function ingredientAccepts(input: Resource, resource: Resource): boolean {
+  return resourcesMatch(input, resource, {}, {}) && (input.id.startsWith("#") || nbtContains(resource.nbt, input.nbt));
 }
 
 export function ingredientForPort(inputs: Ingredient[], resource: Resource): Ingredient | undefined {
-  return inputs.find((input) => resourceKey(input) === resourceKey(resource))
-    ?? inputs.find((input) => ingredientAccepts(input, resource));
+  const exact = inputs.find((input) => resourceKey(input) === resourceKey(resource));
+  if (exact) return exact;
+  const matches = inputs.filter((input) => ingredientAccepts(input, resource));
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 export function ingredientConnectionAccepts(inputs: Ingredient[], port: Resource, source: Resource): boolean {
   const input = ingredientForPort(inputs, port);
   if (!input || input.type !== port.type || input.type !== source.type) return false;
+  if (!ingredientAccepts(input, source) || !ingredientAccepts(port, source)) return false;
   const members = (resource: Resource) => new Set([resource.id, ...(resource.alternatives ?? [])]);
   const inputMembers = members(input), portMembers = members(port);
   return [...members(source)].some((id) => inputMembers.has(id) && portMembers.has(id));
 }
 
-export function resourcesMatch(a: Pick<Ingredient, "type" | "id" | "alternatives">, b: Pick<Ingredient, "type" | "id" | "alternatives">, itemTags: Record<string, string[]>, fluidTags: Record<string, string[]>): boolean {
+export function resourcesMatch(a: Resource, b: Resource, itemTags: Record<string, string[]>, fluidTags: Record<string, string[]>): boolean {
   if (a.type !== b.type) return false;
+  if (!a.id.startsWith("#") && !b.id.startsWith("#") && a.nbt && b.nbt && !nbtContains(a.nbt, b.nbt) && !nbtContains(b.nbt, a.nbt)) return false;
   const values = (resource: typeof a) => {
     const tags = resource.type === "fluid" ? fluidTags : itemTags;
     return new Set([resource.id, ...(resource.alternatives ?? []), ...(resource.id.startsWith("#") ? tagMembers(tags, resource.id.slice(1)) ?? [] : [])]);
@@ -80,8 +85,8 @@ export function resourcesMatch(a: Pick<Ingredient, "type" | "id" | "alternatives
 
 export function collectRecipeItems(recipes: Recipe[], itemTags: Record<string, string[]>, fluidTags: Record<string, string[]> = {}): Resource[] {
   const items = new Map<string, Resource>();
-  const add = (resource: Pick<Ingredient, "type" | "id" | "alternatives">) => {
-    if (!resource.id.startsWith("#") && !(resource.alternatives && resource.alternatives.length > 1 && resource.id === choiceDisplayId(resource.alternatives))) items.set(resourceKey(resource), { type: resource.type, id: resource.id });
+  const add = (resource: Resource) => {
+    if (!resource.id.startsWith("#") && !(resource.alternatives && resource.alternatives.length > 1 && resource.id === choiceDisplayId(resource.alternatives))) items.set(resourceKey(resource), { type: resource.type, id: resource.id, ...(resource.nbt ? { nbt: resource.nbt } : {}) });
   };
   for (const recipe of recipes) {
     for (const input of recipe.inputs) {

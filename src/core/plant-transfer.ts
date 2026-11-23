@@ -1,5 +1,6 @@
 import { connectPlantPorts } from "../plant.ts";
 import type { Plant, PlantComponent, PlantConnection, PlantConstraint, PortRef, Resource } from "../plant.ts";
+import { normalizeNbt } from "../resource-nbt.ts";
 
 export type PlantTransferMode = "full" | "graph";
 export type PlantTransferLayout = {
@@ -88,7 +89,8 @@ function parseResource(value: unknown): Resource {
     throw new Error("Invalid plant resource");
   }
   if (value.alternatives !== undefined && !stringArray(value.alternatives)) throw new Error("Invalid resource alternatives");
-  return { type: value.type, id: value.id, ...(value.alternatives !== undefined ? { alternatives: value.alternatives } : {}) };
+  const nbt = normalizeNbt(value.nbt, true);
+  return { type: value.type, id: value.id, ...(value.alternatives !== undefined ? { alternatives: value.alternatives } : {}), ...(nbt ? { nbt } : {}) };
 }
 
 function parseConstraint(value: unknown): PlantConstraint {

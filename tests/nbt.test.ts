@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import { canonicalNbt, nbtContains, normalizeNbt } from '../src/resource-nbt.ts';
+
+assert.equal(normalizeNbt(undefined), undefined);
+assert.equal(normalizeNbt({}), undefined);
+assert.equal(normalizeNbt('{}'), undefined);
+assert.deepEqual(normalizeNbt('{Color:"chartreuse"}'), { Color: 'chartreuse' });
+assert.deepEqual(normalizeNbt('{Color:chartreuse}'), { Color: 'chartreuse' });
+assert.deepEqual(normalizeNbt({ Bottle: 'REGULAR', Potion: 'minecraft:water' }), { Bottle: 'REGULAR', Potion: 'minecraft:water' });
+assert.throws(() => normalizeNbt('{Color:"chartreuse",Other:1b}'));
+assert.throws(() => normalizeNbt('{Color:1b}'));
+assert.throws(() => normalizeNbt({ value: NaN }));
+const actual = normalizeNbt({ Color: 'yellow', nested: { a: 1, b: 2 }, extra: true });
+assert.equal(nbtContains(actual, undefined), true);
+assert.equal(nbtContains(undefined, normalizeNbt({ Color: 'yellow' })), false);
+assert.equal(nbtContains(actual, normalizeNbt({ Color: 'yellow', nested: { a: 1 } })), true);
+assert.equal(nbtContains(actual, normalizeNbt({ Color: 'green' })), false);
+assert.equal(nbtContains(normalizeNbt({ list: [{ a: 1, b: 2 }] }), normalizeNbt({ list: [{ a: 1 }] })), false);
+assert.equal(canonicalNbt({ b: 1, a: { y: 2, x: 1 } }), canonicalNbt({ a: { x: 1, y: 2 }, b: 1 }));
+console.log('NBT tests passed');

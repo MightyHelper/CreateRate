@@ -330,9 +330,9 @@ function formatResourceFromKey(key: string): string {
   return formatResource({ type: type as "item" | "fluid", id });
 }
 
-function formatResource(resource: { type: "item" | "fluid"; id: string }): string {
-  if (resource.id.startsWith("#")) return `${resource.id}${resource.type === "fluid" ? " (mB)" : ""}`;
-  return resource.type === "fluid" ? `${resource.id} (mB)` : resource.id;
+function formatResource(resource: { type: "item" | "fluid"; id: string; nbt?: object }): string {
+  const label = `${resource.id}${resource.nbt ? ` ${JSON.stringify(resource.nbt)}` : ""}`;
+  return resource.type === "fluid" ? `${label} (mB)` : label;
 }
 
 function showHelp(): void {

@@ -1,6 +1,6 @@
 import type { Plant, PlantComponent, PlantQuantityRef, PortRef, Resource } from "../plant.ts";
 import { resourceKey } from "../plant.ts";
-import { constraintTargetsFor, machineLayoutForRecipe, perMinuteToDisplayRate, plantProcessMetrics, plantQuantityState, rateDisplayUnit, recipeOutputPorts } from "../core/index.ts";
+import { canAttachPlantResource, constraintTargetsFor, machineLayoutForRecipe, perMinuteToDisplayRate, plantProcessMetrics, plantQuantityState, rateDisplayUnit, recipeOutputPorts } from "../core/index.ts";
 import type { MachineLayout } from "../core/index.ts";
 import type { RateDisplayUnits } from "../core/index.ts";
 import { resourceChoice } from "../recipe-choices.ts";
@@ -89,7 +89,7 @@ export function renderCanvas(state: CanvasState) {
     const edgeRate = rateForConnection(state.rateAnalysis, edge.id);
     const labelX = (a.x + b.x) / 2, labelY = laneY === undefined ? (a.y + b.y) / 2 - 8 : laneY - 8;
     const iconMarkup = resourceIconMarkup(edge.from.resource, state, "edge-icon", labelX - 12, labelY - 22, 24);
-    markup.push(`<g class="edge-group ${selectedIds.size === 0 && selected === edge.id ? "selected" : ""}" tabindex="0" data-edge="${esc(edge.id)}"><path class="edge ${edge.secondary ? "secondary" : ""}" d="${path}"/><path class="edge-hit" d="${path}"/>${iconMarkup}<text class="edge-label ${rateClass(edgeRate)}" data-base-x="${labelX}" data-base-y="${labelY}" x="${labelX}" y="${labelY}" text-anchor="middle">${esc(short(edge.from.resource.id))} · ${esc(rateText(edgeRate, edge.from.resource, state.rateDisplayUnits))}</text></g>`);
+    markup.push(`<g class="edge-group ${selectedIds.size === 0 && selected === edge.id ? "selected" : ""}" tabindex="0" data-edge="${esc(edge.id)}"><path class="edge ${edge.secondary ? "secondary" : ""}" d="${path}"/><path class="edge-hit" d="${path}"/>${iconMarkup}<text class="edge-label ${rateClass(edgeRate)}" data-base-x="${labelX}" data-base-y="${labelY}" x="${labelX}" y="${labelY}" text-anchor="middle">${esc(resourceLabel(edge.from.resource))} · ${esc(rateText(edgeRate, edge.from.resource, state.rateDisplayUnits))}</text></g>`);
   }
   for (const component of plant.components) {
     const p = positions[component.id] ?? (positions[component.id] = { x: 0, y: 0 });
@@ -98,7 +98,7 @@ export function renderCanvas(state: CanvasState) {
       const rate = rateForPort(state.rateAnalysis, target);
       const iconMarkup = resourceIconMarkup(component.resource, state, "pool-image", 8, 8, 36)
         || `<text class="pool-fallback" x="26" y="31">${esc(icon(component.resource.id))}</text>`;
-      markup.push(`<g class="pool ${selectedIds.has(component.id) ? "selected" : ""}" data-component="${esc(component.id)}" transform="translate(${p.x} ${p.y})"><circle class="pool-body ${state.pendingPort?.componentId === component.id ? "link-active" : ""}" cx="26" cy="26" r="26"/><circle class="pool-port-hit" data-port="output" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(component.resource))}" cx="26" cy="26" r="25"/>${iconMarkup}<text class="pool-name" x="26" y="64">${esc(short(component.resource.id))}</text><rect class="rate-hit" data-constraint-target="${esc(JSON.stringify(target))}" x="-8" y="67" width="68" height="22" rx="5"/><text class="pool-rate ${rateClass(rate)}" data-constraint-target="${esc(JSON.stringify(target))}" x="26" y="83" text-anchor="middle">${esc(rateText(rate, component.resource, state.rateDisplayUnits))}</text></g>`);
+      markup.push(`<g class="pool ${selectedIds.has(component.id) ? "selected" : ""}" data-component="${esc(component.id)}" transform="translate(${p.x} ${p.y})"><circle class="pool-body ${state.pendingPort?.componentId === component.id ? "link-active" : ""}" cx="26" cy="26" r="26"/><circle class="pool-port-hit" data-port="output" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(component.resource))}" cx="26" cy="26" r="25"/>${iconMarkup}<text class="pool-name" x="26" y="64">${esc(resourceLabel(component.resource))}</text><rect class="rate-hit" data-constraint-target="${esc(JSON.stringify(target))}" x="-8" y="67" width="68" height="22" rx="5"/><text class="pool-rate ${rateClass(rate)}" data-constraint-target="${esc(JSON.stringify(target))}" x="26" y="83" text-anchor="middle">${esc(rateText(rate, component.resource, state.rateDisplayUnits))}</text></g>`);
       continue;
     }
     if (component.kind !== "process") {
@@ -108,7 +108,7 @@ export function renderCanvas(state: CanvasState) {
       const portX = component.kind === "supply" ? 70 : 0;
       const iconMarkup = resourceIconMarkup(component.resource, state, "resource-image", 7, 3, 56)
         || `<text class="resource-icon" x="35" y="29">${esc(icon(component.resource.id))}</text>`;
-      markup.push(`<g class="resource ${selectedIds.has(component.id) ? "selected" : ""}" data-component="${esc(component.id)}" transform="translate(${p.x} ${p.y})"><rect class="resource-body" width="70" height="70" rx="10"/>${iconMarkup}<text class="resource-name" x="35" y="67">${esc(short(component.resource.id))}</text><circle class="port-hit" data-port="${direction}" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(component.resource))}" cx="${portX}" cy="35" r="14"/><circle class="port-dot boundary-port ${isPendingPortTarget(state, component.id, direction, component.resource) ? "link-active" : ""}" cx="${portX}" cy="35" r="5"/><rect class="rate-hit" data-constraint-target="${esc(JSON.stringify(target))}" x="12" y="72" width="46" height="24" rx="5"/><text class="resource-rate ${rateClass(rate)}" data-constraint-target="${esc(JSON.stringify(target))}" x="35" y="89">${esc(rateText(rate, component.resource, state.rateDisplayUnits))}</text></g>`);
+      markup.push(`<g class="resource ${selectedIds.has(component.id) ? "selected" : ""}" data-component="${esc(component.id)}" transform="translate(${p.x} ${p.y})"><rect class="resource-body" width="70" height="70" rx="10"/>${iconMarkup}<text class="resource-name" x="35" y="67">${esc(resourceLabel(component.resource))}</text><circle class="port-hit" data-port="${direction}" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(component.resource))}" cx="${portX}" cy="35" r="14"/><circle class="port-dot boundary-port ${isPendingPortTarget(state, component.id, direction, component.resource) ? "link-active" : ""}" cx="${portX}" cy="35" r="5"/><rect class="rate-hit" data-constraint-target="${esc(JSON.stringify(target))}" x="12" y="72" width="46" height="24" rx="5"/><text class="resource-rate ${rateClass(rate)}" data-constraint-target="${esc(JSON.stringify(target))}" x="35" y="89">${esc(rateText(rate, component.resource, state.rateDisplayUnits))}</text></g>`);
       continue;
     }
     markup.push(processNodeMarkup(component, state));
@@ -243,7 +243,7 @@ function processNodeMarkup(component: Extract<PlantComponent, { kind: "process" 
     const probability = output.outcomes.map(({ chance }) => chance === undefined ? "100%" : probabilityText(chance)).join(" + ");
     const probabilityMarkup = output.outcomes.length > 1 || output.outcomes[0]?.chance !== undefined ? `<tspan class="port-probability">${esc(probability)}</tspan> · ` : "";
     const amount = output.outcomes.length > 1 ? `${formatNumber(output.amount)} avg` : output.outcomes[0]?.amount ?? output.amount;
-    markup.push(`<circle class="port-dot ${isPendingPortTarget(state, component.id, "output", output.resource) ? "link-active" : ""}" cx="320" cy="${row}" r="5"/><rect class="port-hit" data-port="output" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(output.resource))}" ${tagAttributes(output.resource)} x="175" y="${row - 10}" width="160" height="20"/><text class="port-label" x="${outputIcon ? 288 : 308}" y="${row + 4}" text-anchor="end">${probabilityMarkup}${esc(short(output.resource.id))} · ${amount}</text>${outputIcon}<rect class="rate-hit" data-constraint-target="${targetData}" x="172" y="${row + 11}" width="140" height="22" rx="5"/><text class="port-rate ${rateClass(rate)}" data-constraint-target="${targetData}" x="308" y="${row + 27}" text-anchor="end">${esc(rateText(rate, output.resource, state.rateDisplayUnits))}</text>`);
+    markup.push(`<circle class="port-dot ${isPendingPortTarget(state, component.id, "output", output.resource) ? "link-active" : ""}" cx="320" cy="${row}" r="5"/><rect class="port-hit" data-port="output" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(output.resource))}" ${tagAttributes(output.resource)} x="175" y="${row - 10}" width="160" height="20"/><text class="port-label" x="${outputIcon ? 288 : 308}" y="${row + 4}" text-anchor="end">${probabilityMarkup}${esc(resourceLabel(output.resource))} · ${amount}</text>${outputIcon}<rect class="rate-hit" data-constraint-target="${targetData}" x="172" y="${row + 11}" width="140" height="22" rx="5"/><text class="port-rate ${rateClass(rate)}" data-constraint-target="${targetData}" x="308" y="${row + 27}" text-anchor="end">${esc(rateText(rate, output.resource, state.rateDisplayUnits))}</text>`);
   });
   markup.push("</g>");
   return markup.join("");
@@ -350,7 +350,7 @@ export function renderCanvasInteractionPreview(state: CanvasState) {
       const portTop = processGeometry(recipe ? short(recipe.id) : component.recipeId, rows).portTop;
       const targetIndex = Math.max(0, Math.min(ports.length - 1, Math.round((state.previewPoint.y - position.y - portTop) / 44)));
       const dropY = position.y + portTop + targetIndex * 44;
-      preview.push(`<line class="reorder-ghost-line" x1="${position.x + 8}" y1="${dropY}" x2="${position.x + 312}" y2="${dropY}"/><g class="reorder-ghost" transform="translate(${state.previewPoint.x + 12} ${state.previewPoint.y + 8})"><rect width="150" height="30" rx="7"/><text x="10" y="20">${esc(short(port.resource.id))}</text></g>`);
+      preview.push(`<line class="reorder-ghost-line" x1="${position.x + 8}" y1="${dropY}" x2="${position.x + 312}" y2="${dropY}"/><g class="reorder-ghost" transform="translate(${state.previewPoint.x + 12} ${state.previewPoint.y + 8})"><rect width="150" height="30" rx="7"/><text x="10" y="20">${esc(resourceLabel(port.resource))}</text></g>`);
     }
   }
   state.interactionPreview.innerHTML = preview.join("");
@@ -749,15 +749,10 @@ function polygonPath(points: CanvasPoint[]): string {
 function isPendingPortTarget(state: CanvasState, componentId: string, direction: "input" | "output", resource: Resource): boolean {
   const pending = state.pendingPort;
   if (!pending || pending.direction === direction) return false;
-  if (resourceKey(pending.resource) === resourceKey(resource)) return true;
   const input = direction === "input" ? { componentId, resource } : pending.direction === "input" ? pending : undefined;
   const item = direction === "output" ? resource : pending.resource;
   if (!input) return false;
-  const component = state.plant.components.find(({ id }) => id === input.componentId);
-  if (component?.kind !== "process") return false;
-  const recipe = state.recipesById.get(component.recipeId);
-  return recipe?.inputs.some((candidate) => resourceKey(candidate) === resourceKey(input.resource) &&
-    candidate.type === item.type && candidate.alternatives?.includes(item.id)) ?? false;
+  return canAttachPlantResource(state.plant, item, { ...input, direction: "input" }, (id) => state.recipesById.get(id));
 }
 function connectionPath(from: CanvasPoint, to: CanvasPoint, returnLaneY?: number, fromTangent = { x: 1, y: 0 }, toTangent = { x: 1, y: 0 }): string {
   if (returnLaneY !== undefined) {
@@ -798,10 +793,10 @@ function wrapProcessTitle(title: string): string[] {
   return lines.length ? lines : [title];
 }
 function fitLabel(id: string, maxLength = 19): string { const label = short(id); return label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label; }
-function resourceLabel(resource: Pick<Ingredient, "id" | "alternatives">): string {
+function resourceLabel(resource: Pick<Ingredient, "id" | "alternatives" | "nbt">): string {
   const { tagId } = resourceChoice(resource);
   if (tagId && (resource.id.startsWith("#") || tagId.endsWith(":nuggets"))) return fitLabel(tagId);
-  return fitLabel(resource.id);
+  return resource.nbt ? `${fitLabel(resource.id)} ${JSON.stringify(resource.nbt)}` : fitLabel(resource.id);
 }
 function icon(id: string): string { return short(id).split(/[- _]/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(); }
 function esc(value: string): string { return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!); }

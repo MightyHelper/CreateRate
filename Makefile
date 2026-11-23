@@ -42,6 +42,8 @@ test:
 	node build/canvas-selection.test.mjs
 	$(ESBUILD) tests/constraint-units.test.ts --bundle --platform=node --format=esm --outfile=build/constraint-units.test.mjs
 	node build/constraint-units.test.mjs
+	$(ESBUILD) tests/nbt.test.ts --bundle --platform=node --format=esm --outfile=build/nbt.test.mjs
+	node build/nbt.test.mjs
 
 pages: build
 	mkdir -p build/site/src build/site/build build/site/data
