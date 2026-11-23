@@ -29,3 +29,10 @@ assert.equal(ingredientConnectionAccepts(recipe.inputs, inputPort.resource, { ty
 assert.equal(ingredientConnectionAccepts(recipe.inputs, inputPort.resource, { type: "item", id: "copper" }), false);
 assert.deepEqual(resolveCanvasPort(graph, catalog, { component: "pool", port: "output", resource: "item:#ingots" }).resource.alternatives, ["iron", "gold"]);
 assert.throws(() => resolveCanvasPort(graph, catalog, { component: "process", port: "input", resource: "item:missing" }), /Unknown canvas port/);
+
+const { canonicalizePortOrder, orderedPorts } = await import("../src/ui/canvas.ts");
+const savedOrder = { p: { input: ["item:#one", "item:gold", "item:iron", "item:#many", "fluid:#water", "item:#unknown"] } };
+const normalizedOrder = canonicalizePortOrder(savedOrder, { one: ["iron"], many: ["a", "b"] }, { water: ["minecraft:water"] });
+assert.deepEqual(normalizedOrder.p.input, ["item:iron", "item:gold", "item:#many", "fluid:minecraft:water", "item:#unknown"]);
+assert.deepEqual(orderedPorts(normalizedOrder, "p", "input", [{ type: "item", id: "gold" }, { type: "item", id: "iron" }]).map(({ id }) => id), ["iron", "gold"]);
+assert.equal(savedOrder.p.input[0], "item:#one");

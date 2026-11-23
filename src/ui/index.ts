@@ -34,7 +34,7 @@ import type { Recipe } from "../recipes.ts";
 import type { PlantRateAnalysis } from "../plant-analysis.ts";
 import { createConstraintUi } from "./constraints.ts";
 import { createPickers } from "./pickers.ts";
-import { connectionLanes, orderedPorts, portPoint, processGeometry, renderCanvas, renderCanvasInteractionPreview, renderCanvasMovement, renderRecipePreview, renderResourceIcon, resolveCanvasPort, updateCanvasView, updateEdgeTooltip } from "./canvas.ts";
+import { canonicalizePortOrder, connectionLanes, orderedPorts, portPoint, processGeometry, renderCanvas, renderCanvasInteractionPreview, renderCanvasMovement, renderRecipePreview, renderResourceIcon, resolveCanvasPort, updateCanvasView, updateEdgeTooltip } from "./canvas.ts";
 import type { CanvasState } from "./canvas.ts";
 import { getRateDisplayUnits } from "./rate-display.ts";
 import { rateDisplayUnit } from "../core/rate-units.ts";
@@ -168,6 +168,7 @@ loadBrowserRecipeCatalog().then((catalog) => {
   knownItems = collectRecipeItems(recipes, itemTags, fluidTags);
   recipesById = new Map(recipes.map((recipe) => [recipe.id, recipe]));
   plant = canonicalizePlantResources(plant, itemTags, fluidTags);
+  portOrder = canonicalizePortOrder(portOrder, itemTags, fluidTags);
   ensureOutputDestinations();
   render();
 }).catch(() => setStatus("Could not load the generated recipe catalog; run make build"));
@@ -1024,7 +1025,7 @@ async function importPlantFromClipboard() {
       ? { ...defaults, ...Object.fromEntries(Object.entries(transfer.layout!.positions).filter(([id]) => componentIds.has(id))) }
       : defaults;
     portOrder = transfer.mode === "full"
-      ? Object.fromEntries(Object.entries(transfer.layout!.portOrder).filter(([id]) => componentIds.has(id)))
+      ? canonicalizePortOrder(Object.fromEntries(Object.entries(transfer.layout!.portOrder).filter(([id]) => componentIds.has(id))), itemTags, fluidTags)
       : {};
     selected = ""; selectedIds.clear(); pendingPort = undefined; previewPoint = undefined; gesture = undefined;
     ensureOutputDestinations();

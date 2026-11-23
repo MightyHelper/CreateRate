@@ -37,6 +37,19 @@ export type CanvasState = {
   reorderingPort?: PortRef;
 };
 
+export function canonicalizePortOrder(order: CanvasState["portOrder"], itemTags: Record<string, string[]>, fluidTags: Record<string, string[]>): CanvasState["portOrder"] {
+  const canonical = (keys: string[]) => [...new Set(keys.map((key) => {
+    const match = /^(item|fluid):#(.+)$/.exec(key);
+    if (!match) return key;
+    const members = (match[1] === "item" ? itemTags : fluidTags)[match[2]];
+    return members?.length === 1 ? `${match[1]}:${members[0]}` : key;
+  }))];
+  return Object.fromEntries(Object.entries(order).map(([id, ports]) => [id, {
+    ...(ports.input ? { input: canonical(ports.input) } : {}),
+    ...(ports.output ? { output: canonical(ports.output) } : {}),
+  }]));
+}
+
 export function resolveCanvasPort(plant: Plant, recipes: Map<string, Recipe>, data: { component?: string; port?: string; resource?: string }): PortRef {
   const component = plant.components.find(({ id }) => id === data.component);
   const direction = data.port;
