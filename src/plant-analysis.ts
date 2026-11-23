@@ -318,6 +318,18 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
       }
       if (!feasible) addIssue(issues, `${component.id} stress and discrete operating bounds disagree`);
     }
+    if (rpmInteger && countIsPowerOfTwo && maximumStress !== undefined && maximumRpm !== undefined && maximumMachines !== undefined &&
+        Number.isSafeInteger(maximumRpm) && Number.isSafeInteger(maximumMachines) && stressPerRpm > 0 && minimumStress > 0) {
+      let feasible = false, uncertain = false;
+      for (let count = minimumMachines; count <= maximumMachines; count *= 2) {
+        const lower = minimumStress / (stressPerRpm * count), upper = maximumStress / (stressPerRpm * count);
+        if (!Number.isFinite(lower) || !Number.isFinite(upper)) { uncertain = true; break; }
+        let candidate = Math.max(minimumRpm, Math.ceil(nearInteger(lower)));
+        if (rpmPowerOfTwo) candidate = 2 ** Math.ceil(Math.log2(Math.max(candidate, 1)));
+        if (candidate <= Math.min(maximumRpm, Math.floor(nearInteger(upper)))) { feasible = true; break; }
+      }
+      if (!feasible && !uncertain) addIssue(issues, `${component.id} stress range excludes all discrete operating values`);
+    }
     if (conditions.includes("rpm") && rpm === undefined) continue;
     let machineCount = upperBoundFor(plant, { kind: "machine-count", componentId: component.id });
     const countPowerOfTwo = plant.constraints.some((constraint) => constraint.kind === "power-of-two" &&
