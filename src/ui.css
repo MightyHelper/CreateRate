@@ -107,6 +107,12 @@ main { position: absolute; inset: 0; }
 
 .edge { fill: none; stroke: #7f9082; stroke-width: 3; marker-end: url(#arrowhead); vector-effect: non-scaling-stroke; }
 .edge.secondary { opacity: .2; stroke-dasharray: 7 5; }
+.edge.legacy-unresolved { stroke: #ff8378; stroke-dasharray: 5 4; }
+.legacy-repair-open { position: absolute; top: 1rem; right: 1rem; z-index: 4; }
+#legacy-repair { padding: 14px; }
+#legacy-repair header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#legacy-repair-options section { padding: 8px 0; border-top: 1px solid #455247; overflow-wrap: anywhere; }
+#legacy-repair-options button { margin: 0 4px 6px 0; }
 .edge-ghost { fill: none; stroke: #9bd0a4; stroke-width: 3; stroke-dasharray: 7 5; marker-end: url(#arrowhead); opacity: .8; vector-effect: non-scaling-stroke; }
 .reorder-ghost-line { stroke: #9bd0a4; stroke-width: 2; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
 .reorder-ghost rect { fill: #33483aee; stroke: #9bd0a4; stroke-width: 1.5; }

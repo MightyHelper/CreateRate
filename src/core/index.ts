@@ -31,3 +31,5 @@ export {
   insertPoolInPlantConnection,
 } from "./plant-editing.ts";
 export type { PlantEditDependencies } from "./plant-editing.ts";
+export { legacyFluidPorts, repairLegacyFluidPort, splitAndRepairLegacyFluidPort, legacyFluidConstraints, repairLegacyFluidConstraint } from './legacy-fluid-repair.ts';
+export type { LegacyFluidPort, LegacyFluidConstraint } from './legacy-fluid-repair.ts';

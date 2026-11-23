@@ -16,16 +16,21 @@ import {
   expandPlantBoundary,
   insertPoolInPlantConnection,
   loadBrowserRecipeCatalog,
+  legacyFluidConstraints,
+  legacyFluidPorts,
   mergePlantResourceComponents,
   removeDisconnectedPlantBoundaries,
   recipesForPlantBoundary,
   recipeOutputPorts,
   resourceKey,
   resourcesMatch,
+  repairLegacyFluidConstraint,
+  repairLegacyFluidPort,
   parsePlantTransferYaml,
   plantTransferYaml,
   plantProcessMetrics,
   splitPlantConnection,
+  splitAndRepairLegacyFluidPort,
   setPlantConnectionSecondary,
   togglePlantConnection,
 } from "../core/index.ts";
@@ -240,6 +245,51 @@ $("#selection-controls").addEventListener("click", (event) => {
   if (!connection) return;
   gestureFramework.dispatch("selection.secondary", connection);
 });
+
+$("#legacy-repair-open").addEventListener("click", () => { renderLegacyRepair(); $("#legacy-repair").showModal(); });
+$("#legacy-repair-close").addEventListener("click", () => $("#legacy-repair").close());
+$("#legacy-repair-options").addEventListener("click", (event) => {
+  const button = (event.target as Element).closest<HTMLButtonElement>("[data-legacy-port]");
+  if (!button) return;
+  const findRecipe = (id: string) => recipesById.get(id);
+  const isConstraint = button.dataset.legacyKind === "constraint";
+  const entries = isConstraint ? legacyFluidConstraints(plant, findRecipe) : legacyFluidPorts(plant, findRecipe);
+  const entry = entries[Number(button.dataset.legacyPort)];
+  const candidate = entry?.candidates[Number(button.dataset.legacyCandidate)];
+  if (!entry || !candidate) return;
+  try {
+    if (button.dataset.legacySplit && "connectionId" in entry) {
+      const edge = plant.connections.find(({ id }) => id === entry.connectionId)!;
+      const otherId = entry.port.direction === "input" ? edge.from.componentId : edge.to.componentId;
+      const id = nextId("fluid-repair");
+      plant = splitAndRepairLegacyFluidPort(plant, entry.connectionId, entry.port.direction, candidate, id, findRecipe);
+      const original = positions[otherId] ?? { x: 0, y: 0 };
+      positions[id] = { x: original.x + 90, y: original.y + 90 };
+    } else {
+      plant = isConstraint && "constraintId" in entry
+        ? repairLegacyFluidConstraint(plant, entry.constraintId, candidate, findRecipe)
+        : "connectionId" in entry ? repairLegacyFluidPort(plant, entry.connectionId, entry.port.direction, candidate, findRecipe) : plant;
+    }
+    save(); render(); renderLegacyRepair();
+  } catch (error) {
+    $("#legacy-repair-error").textContent = error instanceof Error ? error.message : "Could not repair this connection";
+    $("#legacy-repair-error").hidden = false;
+  }
+});
+
+function renderLegacyRepair() {
+  const ports = legacyFluidPorts(plant, (id) => recipesById.get(id));
+  const constraints = legacyFluidConstraints(plant, (id) => recipesById.get(id));
+  $("#legacy-repair-error").hidden = true;
+  const renderEntry = (entry: { port: PortRef; candidates: Resource[] }, index: number, kind: string, id: string) => {
+    const edge = kind === "connection" ? plant.connections.find((item) => item.id === id) : undefined;
+    const otherId = edge && (entry.port.direction === "input" ? edge.from.componentId : edge.to.componentId);
+    const other = plant.components.find((component) => component.id === otherId);
+    const shared = other && other.kind !== "process" && plant.connections.filter((item) => item.from.componentId === otherId || item.to.componentId === otherId).length > 1;
+    return `<section><p>${escapeHtml(kind)} ${escapeHtml(id)} · ${escapeHtml(entry.port.componentId)} ${entry.port.direction} · ${escapeHtml(entry.port.resource.id)}</p>${shared ? "<p>Shared resource: splitting creates a separate source, sink, or pool for this flow. Existing resource constraints stay with the original.</p>" : ""}${entry.candidates.map((candidate, candidateIndex) => `<button type="button" data-legacy-kind="${kind}" data-legacy-port="${index}" data-legacy-candidate="${candidateIndex}" ${shared ? 'data-legacy-split="true"' : ""}>${shared ? "Split and use " : ""}${escapeHtml(candidate.nbt ? JSON.stringify(candidate.nbt) : candidate.id)}</button>`).join(" ")}</section>`;
+  };
+  $("#legacy-repair-options").innerHTML = ports.map((entry, index) => renderEntry(entry, index, "connection", entry.connectionId)).join("") + constraints.map((entry, index) => renderEntry(entry, index, "constraint", entry.constraintId)).join("") || "<p>No unresolved fluid ports remain.</p>";
+}
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && document.querySelector("dialog[open]")) {
     event.preventDefault(); gestureFramework.dispatch("dialog.close"); return;
@@ -344,6 +394,7 @@ function render(reanalyze = true) {
     pendingRenderAnalysis = false;
   }
   if (reanalyze) rateAnalysis = recipes.length > 0 ? analyzePlantRates(plant, recipesById) : undefined;
+  $("#legacy-repair-open").hidden = legacyFluidPorts(plant, (id) => recipesById.get(id)).length === 0 && legacyFluidConstraints(plant, (id) => recipesById.get(id)).length === 0;
   renderCanvas(canvasState());
   updateAnimationPlayback();
   renderSelectionUi();

@@ -45,6 +45,7 @@
       </aside>
       <aside id="gesture-help" class="gesture-help" aria-label="Available actions" aria-live="polite"></aside>
       <aside id="tag-preview" class="tag-preview" popover="manual" aria-hidden="true"></aside>
+      <button id="legacy-repair-open" class="legacy-repair-open" type="button" hidden>Repair fluid variants</button>
       <output id="status" class="status" aria-live="polite">Ready</output>
     </main>
     <dialog id="recipe-picker" class="recipe-picker">
@@ -79,6 +80,12 @@
         <p class="constraint-error" id="constraint-error" hidden></p>
         <footer><button id="constraint-clear" type="button">Clear</button><span></span><button id="constraint-apply" type="button">Apply</button></footer>
       </form>
+    </dialog>
+    <dialog id="legacy-repair" class="recipe-picker">
+      <header><strong>Repair older fluid ports</strong><button id="legacy-repair-close" type="button" aria-label="Close">×</button></header>
+      <p>These saved connections and constraints do not specify a fluid variant. Choose the intended variant for each one. Export the plant first if you want a separate backup.</p>
+      <div id="legacy-repair-options"></div>
+      <p id="legacy-repair-error" class="constraint-error" hidden></p>
     </dialog>
     <script type="module" src="build/ui.js"></script>
   </body>

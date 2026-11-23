@@ -1,6 +1,6 @@
 import type { Plant, PlantComponent, PlantQuantityRef, PortRef, Resource } from "../plant.ts";
 import { resourceKey } from "../plant.ts";
-import { canAttachPlantResource, constraintTargetsFor, machineLayoutForRecipe, perMinuteToDisplayRate, plantProcessMetrics, plantQuantityState, rateDisplayUnit, recipeOutputPorts } from "../core/index.ts";
+import { canAttachPlantResource, constraintTargetsFor, legacyFluidPorts, machineLayoutForRecipe, perMinuteToDisplayRate, plantProcessMetrics, plantQuantityState, rateDisplayUnit, recipeOutputPorts } from "../core/index.ts";
 import type { MachineLayout } from "../core/index.ts";
 import type { RateDisplayUnits } from "../core/index.ts";
 import { resourceChoice } from "../recipe-choices.ts";
@@ -75,6 +75,7 @@ export function renderCanvas(state: CanvasState) {
   latestCanvasState = state;
   const { plant, recipesById, positions, portOrder, view, selected, selectedIds } = state;
   const components = new Map(plant.components.map((component) => [component.id, component]));
+  const legacyEdges = new Set(legacyFluidPorts(plant, (id) => recipesById.get(id)).map(({ connectionId }) => connectionId));
   const returnLanes = connectionLanes(state);
   const markup: string[] = [];
   for (const edge of plant.connections) {
@@ -89,7 +90,7 @@ export function renderCanvas(state: CanvasState) {
     const edgeRate = rateForConnection(state.rateAnalysis, edge.id);
     const labelX = (a.x + b.x) / 2, labelY = laneY === undefined ? (a.y + b.y) / 2 - 8 : laneY - 8;
     const iconMarkup = resourceIconMarkup(edge.from.resource, state, "edge-icon", labelX - 12, labelY - 22, 24);
-    markup.push(`<g class="edge-group ${selectedIds.size === 0 && selected === edge.id ? "selected" : ""}" tabindex="0" data-edge="${esc(edge.id)}"><path class="edge ${edge.secondary ? "secondary" : ""}" d="${path}"/><path class="edge-hit" d="${path}"/>${iconMarkup}<text class="edge-label ${rateClass(edgeRate)}" data-base-x="${labelX}" data-base-y="${labelY}" x="${labelX}" y="${labelY}" text-anchor="middle">${esc(resourceLabel(edge.from.resource))} · ${esc(rateText(edgeRate, edge.from.resource, state.rateDisplayUnits))}</text></g>`);
+    markup.push(`<g class="edge-group ${selectedIds.size === 0 && selected === edge.id ? "selected" : ""}" tabindex="0" data-edge="${esc(edge.id)}"><path class="edge ${edge.secondary ? "secondary" : ""} ${legacyEdges.has(edge.id) ? "legacy-unresolved" : ""}" d="${path}"/><path class="edge-hit" d="${path}"/>${iconMarkup}<text class="edge-label ${rateClass(edgeRate)}" data-base-x="${labelX}" data-base-y="${labelY}" x="${labelX}" y="${labelY}" text-anchor="middle">${esc(resourceLabel(edge.from.resource))} · ${esc(rateText(edgeRate, edge.from.resource, state.rateDisplayUnits))}</text></g>`);
   }
   for (const component of plant.components) {
     const p = positions[component.id] ?? (positions[component.id] = { x: 0, y: 0 });
@@ -269,10 +270,10 @@ export function portPoint(state: CanvasState, component: PlantComponent, directi
   const recipe = state.recipesById.get(component.recipeId);
   const ports = direction === "input" ? recipe?.inputs ?? [] : recipeOutputPorts(recipe);
   const list = orderedPorts(state.portOrder, component.id, direction, ports);
-  const index = Math.max(0, list.findIndex((item) => resourceKey("resource" in item ? item.resource : item) === resourceKey(resource)));
+  const index = list.findIndex((item) => resourceKey("resource" in item ? item.resource : item) === resourceKey(resource));
   const rows = Math.max(recipe?.inputs.length ?? 0, recipeOutputPorts(recipe).length);
   const portTop = processGeometry(recipe ? short(recipe.id) : component.recipeId, rows).portTop;
-  return { x: p.x + (direction === "input" ? 0 : 320), y: p.y + portTop + index * 44 };
+  return { x: p.x + (direction === "input" ? 0 : 320), y: p.y + portTop + (index < 0 ? -22 : index * 44) };
 }
 
 export function updateEdgeTooltip(event: PointerEvent, svg: SVGSVGElement, view: CanvasState["view"]) {

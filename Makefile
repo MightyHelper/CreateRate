@@ -44,6 +44,8 @@ test:
 	node build/constraint-units.test.mjs
 	$(ESBUILD) tests/nbt.test.ts --bundle --platform=node --format=esm --outfile=build/nbt.test.mjs
 	node build/nbt.test.mjs
+	$(ESBUILD) tests/legacy-fluid-repair.test.ts --bundle --platform=node --format=esm --outfile=build/legacy-fluid-repair.test.mjs
+	node build/legacy-fluid-repair.test.mjs
 
 pages: build
 	mkdir -p build/site/src build/site/build build/site/data
