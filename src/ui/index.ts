@@ -544,6 +544,7 @@ function insertPoolInConnection(connectionId: string, at: Point) {
 function pointerDown(event: PointerEvent) {
   if (event.button === 2) return;
   const point = screenPoint(event); pointers.set(event.pointerId, point);
+  svg.setPointerCapture(event.pointerId);
   if (pointers.size === 2) {
     gestureFramework.dispatch("canvas.zoom", { event, points: [...pointers.values()] as [Point, Point] });
     return;
@@ -571,7 +572,6 @@ function pointerDown(event: PointerEvent) {
   const portElement = (event.target as Element).closest<SVGElement>("[data-port]");
   const portComponent = portElement && plant.components.find(({ id }) => id === portElement.dataset.component);
   if (portElement && event.pointerType !== "mouse" && (portComponent?.kind !== "pool" || pendingPort)) {
-    svg.setPointerCapture(event.pointerId);
     gestureFramework.dispatch(portComponent?.kind === "pool" ? "pool.connect" : "port.connect", { port: portFromElement(portElement), touch: true }); return;
   }
   if (portElement && event.ctrlKey) {
