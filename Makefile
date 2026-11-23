@@ -1,6 +1,13 @@
 .PHONY: help build test pages
+.DEFAULT_GOAL := help
 
-ESBUILD ?= npx --yes --quiet esbuild@0.28.2
+ESBUILD ?= ./node_modules/.bin/esbuild --alias:yaml=./node_modules/yaml/browser/index.js
+
+node_modules/.bin/esbuild: package.json package-lock.json
+	npm ci --no-audit --no-fund
+
+node_modules/yaml/package.json: node_modules/.bin/esbuild
+	npm ci --no-audit --no-fund
 
 help:
 	@printf '%s\n' \
@@ -14,7 +21,7 @@ help:
 	  './build/create-rate.mjs capacity create:mixing/andesite_alloy --rpm 64 --input minecraft:andesite=20 --input minecraft:iron_nugget=20 --target 10' \
 	  './build/create-rate.mjs capacity create:compacting/andesite_from_flint --rpm 64 --input minecraft:flint=40 --input minecraft:gravel=20 --input fluid:minecraft:lava=2000 --target 10'
 
-build:
+build: node_modules/.bin/esbuild node_modules/yaml/package.json
 	mkdir -p build
 	$(ESBUILD) src/cli.ts --bundle --platform=node --format=esm --banner:js='#!/usr/bin/env node' --outfile=build/create-rate.mjs
 	chmod +x build/create-rate.mjs
@@ -22,7 +29,7 @@ build:
 	node build/export-recipes.mjs
 	$(ESBUILD) src/ui/index.ts --bundle --platform=browser --format=esm --outfile=build/ui.js
 
-test:
+test: node_modules/.bin/esbuild node_modules/yaml/package.json
 	mkdir -p build
 	$(ESBUILD) tests/machine-bound.test.ts --bundle --platform=node --format=esm --outfile=build/machine-bound.test.mjs
 	node build/machine-bound.test.mjs

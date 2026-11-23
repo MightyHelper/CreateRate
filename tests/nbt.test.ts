@@ -10,6 +10,9 @@ assert.deepEqual(normalizeNbt({ Bottle: 'REGULAR', Potion: 'minecraft:water' }),
 assert.throws(() => normalizeNbt('{Color:"chartreuse",Other:1b}'));
 assert.throws(() => normalizeNbt('{Color:1b}'));
 assert.throws(() => normalizeNbt({ value: NaN }));
+const cyclic: Record<string, unknown> = {};
+cyclic.self = cyclic;
+assert.throws(() => normalizeNbt(cyclic), /Cyclic NBT/);
 const actual = normalizeNbt({ Color: 'yellow', nested: { a: 1, b: 2 }, extra: true });
 assert.equal(nbtContains(actual, undefined), true);
 assert.equal(nbtContains(undefined, normalizeNbt({ Color: 'yellow' })), false);

@@ -1,3 +1,4 @@
+import { parse as parseYamlDocument } from "yaml";
 import { connectPlantPorts } from "../plant.ts";
 import type { Plant, PlantComponent, PlantConnection, PlantConstraint, PortRef, Resource } from "../plant.ts";
 import { normalizeNbt } from "../resource-nbt.ts";
@@ -133,87 +134,8 @@ function parseLayout(value: unknown): PlantTransferLayout {
 }
 
 function parseYaml(source: string): unknown {
-  const lines = source.split(/\r?\n/).flatMap((raw, index) => {
-    if (!raw.trim() || raw.trimStart().startsWith("#") || raw.trim() === "---") return [];
-    if (raw.includes("\t")) throw new Error(`Tabs are not supported in YAML (line ${index + 1})`);
-    const indent = raw.length - raw.trimStart().length;
-    const text = raw.trim();
-    if (text.startsWith("- ")) {
-      const rest = text.slice(2).trim();
-      try {
-        splitYamlMapping(rest);
-        return [{ indent, text: "-" }, { indent: indent + 2, text: rest }];
-      } catch { /* Scalar sequence entries do not contain mapping syntax. */ }
-    }
-    return [{ indent, text }];
-  });
-  if (!lines.length) throw new Error("Clipboard is empty");
-  const parsed = parseYamlBlock(lines, 0, lines[0].indent);
-  if (parsed.index !== lines.length) throw new Error("Unexpected YAML content after the root value");
-  return parsed.value;
-}
-
-function parseYamlBlock(lines: Array<{ indent: number; text: string }>, start: number, indent: number): { value: unknown; index: number } {
-  const sequence = lines[start].text === "-" || lines[start].text.startsWith("- ");
-  if (sequence) {
-    const values: unknown[] = [];
-    let index = start;
-    while (index < lines.length && lines[index].indent === indent && (lines[index].text === "-" || lines[index].text.startsWith("- "))) {
-      const rest = lines[index].text.slice(1).trim();
-      if (rest) { values.push(parseYamlScalar(rest)); index++; }
-      else if (index + 1 < lines.length && lines[index + 1].indent > indent) {
-        const nested = parseYamlBlock(lines, index + 1, lines[index + 1].indent);
-        values.push(nested.value); index = nested.index;
-      } else { values.push(null); index++; }
-    }
-    return { value: values, index };
-  }
-
-  const value: Record<string, unknown> = Object.create(null);
-  let index = start;
-  while (index < lines.length && lines[index].indent === indent) {
-    const [keyText, rest] = splitYamlMapping(lines[index].text);
-    const keyValue = parseYamlKey(keyText);
-    if (Object.hasOwn(value, keyValue)) throw new Error(`Duplicate YAML key: ${keyValue}`);
-    if (rest) { value[keyValue] = parseYamlScalar(rest); index++; }
-    else if (index + 1 < lines.length && lines[index + 1].indent > indent) {
-      const nested = parseYamlBlock(lines, index + 1, lines[index + 1].indent);
-      value[keyValue] = nested.value; index = nested.index;
-    } else { value[keyValue] = null; index++; }
-  }
-  if (!Object.keys(value).length) throw new Error("Invalid YAML mapping");
-  return { value, index };
-}
-
-function splitYamlMapping(line: string): [string, string] {
-  let quoted = false, escaped = false;
-  for (let index = 0; index < line.length; index++) {
-    const char = line[index];
-    if (escaped) { escaped = false; continue; }
-    if (char === "\\" && quoted) { escaped = true; continue; }
-    if (char === '"') { quoted = !quoted; continue; }
-    if (char === ":" && !quoted && (index + 1 === line.length || /\s/.test(line[index + 1]))) {
-      return [line.slice(0, index), line.slice(index + 1).trim()];
-    }
-  }
-  throw new Error(`Expected a YAML mapping entry: ${line}`);
-}
-
-function parseYamlKey(key: string): string {
-  const value = key.startsWith('"') ? parseYamlScalar(key) : key;
-  if (!isString(value) || !value) throw new Error(`Invalid YAML mapping key: ${key}`);
-  return value;
-}
-
-function parseYamlScalar(text: string): unknown {
-  if (text.startsWith('"') || text === "[]" || text === "{}") {
-    try { return JSON.parse(text); } catch { throw new Error(`Invalid YAML scalar: ${text}`); }
-  }
-  if (text === "null" || text === "~") return null;
-  if (text === "true") return true;
-  if (text === "false") return false;
-  if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(text)) return Number(text);
-  return text;
+  if (!source.trim()) throw new Error("Clipboard is empty");
+  return parseYamlDocument(source, { uniqueKeys: true, maxAliasCount: 100 });
 }
 
 function stringifyYaml(value: unknown, indent = 0): string {

@@ -68,4 +68,24 @@ plant:
 const inline = parsePlantTransferYaml(inlineYaml);
 assert.equal(inline.plant.components.length, 2);
 assert.equal(inline.plant.connections[0].id, "flow");
-assert.throws(() => parsePlantTransferYaml(inlineYaml.replace('      kind: supply', '      id: duplicate\n      kind: supply')), /Duplicate YAML key/);
+assert.throws(() => parsePlantTransferYaml(inlineYaml.replace('      kind: supply', '      id: duplicate\n      kind: supply')), /Map keys must be unique/);
+
+const standardYaml = `format: 'CreateRate plant' # flow collections and aliases are valid YAML
+version: 1
+mode: graph
+plant:
+  id: example
+  components:
+    - id: source
+      kind: supply
+      resource: &resource {type: item, id: iron, alternatives: [iron, gold]}
+    - id: sink
+      kind: demand
+      resource: *resource
+  connections: [{id: flow, from: {componentId: source, direction: output, resource: *resource}, to: {componentId: sink, direction: input, resource: *resource}}]
+  constraints: []
+`;
+const standardPlant = parsePlantTransferYaml(standardYaml).plant;
+assert.deepEqual(standardPlant.connections[0].from.resource.alternatives, ["iron", "gold"]);
+assert.throws(() => parsePlantTransferYaml(`${standardYaml}\n---\nother: document`));
+assert.throws(() => parsePlantTransferYaml(standardYaml.replace('{type: item, id: iron, alternatives: [iron, gold]}', '{type: fluid, id: paint, nbt: &nbt {self: *nbt}}')), /Cyclic NBT/);

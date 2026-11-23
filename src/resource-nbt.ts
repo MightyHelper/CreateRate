@@ -3,12 +3,16 @@ export type NbtValue = string | number | boolean | NbtValue[] | NbtCompound;
 export type NbtCompound = { [key: string]: NbtValue };
 export class UnsupportedNbtError extends Error {}
 
-function normalizeValue(value: unknown): NbtValue {
+function normalizeValue(value: unknown, ancestors = new Set<object>()): NbtValue {
   if (typeof value === 'string' || typeof value === 'boolean') return value;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (Array.isArray(value)) return value.map(normalizeValue);
-  if (value !== null && typeof value === 'object' && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)) {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizeValue(item)]));
+  if (value !== null && typeof value === 'object' && (Array.isArray(value) || Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)) {
+    if (ancestors.has(value)) throw new UnsupportedNbtError('Cyclic NBT value');
+    ancestors.add(value);
+    const normalized = Array.isArray(value) ? value.map(item => normalizeValue(item, ancestors))
+      : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizeValue(item, ancestors)]));
+    ancestors.delete(value);
+    return normalized;
   }
   throw new UnsupportedNbtError('Unsupported NBT value');
 }
