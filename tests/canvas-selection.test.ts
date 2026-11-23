@@ -36,3 +36,6 @@ const normalizedOrder = canonicalizePortOrder(savedOrder, { one: ["iron"], many:
 assert.deepEqual(normalizedOrder.p.input, ["item:iron", "item:gold", "item:#many", "fluid:minecraft:water", "item:#unknown"]);
 assert.deepEqual(orderedPorts(normalizedOrder, "p", "input", [{ type: "item", id: "gold" }, { type: "item", id: "iron" }]).map(({ id }) => id), ["iron", "gold"]);
 assert.equal(savedOrder.p.input[0], "item:#one");
+for (const id of ["constructor", "toString", "__proto__"]) {
+  assert.deepEqual(canonicalizePortOrder({ p: { input: [`item:#${id}`] } }, {}, {}).p.input, [`item:#${id}`]);
+}

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { choiceDisplayId, choiceTagId, listChoiceTags } from "./recipe-choices.ts";
+import { tagMembers } from "./resource-tags.ts";
 
 export type Ingredient = {
   type: "item" | "fluid";
@@ -300,7 +301,7 @@ function parseResource(value: unknown): Omit<Ingredient, "amount"> | undefined {
 }
 
 function resourceFromTag(type: "item" | "fluid", tag: string, tags: Record<string, string[]> | undefined) {
-  const alternatives = tags?.[tag];
+  const alternatives = tagMembers(tags, tag);
   return alternatives?.length === 1
     ? { type, id: alternatives[0], alternatives }
     : { type, id: `#${tag}`, alternatives };

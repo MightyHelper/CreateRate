@@ -4,6 +4,7 @@ import { constraintTargetsFor, machineLayoutForRecipe, perMinuteToDisplayRate, p
 import type { MachineLayout } from "../core/index.ts";
 import type { RateDisplayUnits } from "../core/index.ts";
 import { resourceChoice } from "../recipe-choices.ts";
+import { tagMembers } from "../resource-tags.ts";
 import type { Ingredient, MachineLayoutRules, MachineModel, MachineModelElement, Recipe, TextureAnimation } from "../recipes.ts";
 import type { PlantRateAnalysis, RateValue } from "../plant-analysis.ts";
 import { rasterizeModel } from "./model-raster.ts";
@@ -41,7 +42,7 @@ export function canonicalizePortOrder(order: CanvasState["portOrder"], itemTags:
   const canonical = (keys: string[]) => [...new Set(keys.map((key) => {
     const match = /^(item|fluid):#(.+)$/.exec(key);
     if (!match) return key;
-    const members = (match[1] === "item" ? itemTags : fluidTags)[match[2]];
+    const members = tagMembers(match[1] === "item" ? itemTags : fluidTags, match[2]);
     return members?.length === 1 ? `${match[1]}:${members[0]}` : key;
   }))];
   return Object.fromEntries(Object.entries(order).map(([id, ports]) => [id, {

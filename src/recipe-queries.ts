@@ -2,6 +2,7 @@ import type { Ingredient, Recipe, RecipeOutput, TextureAnimation, MachineLayoutR
 import type { Plant, Resource } from "./plant.ts";
 import { resourceKey } from "./plant.ts";
 import { choiceDisplayId } from "./recipe-choices.ts";
+import { tagMembers } from "./resource-tags.ts";
 
 export type RecipeCatalog = { recipes: Recipe[]; itemTags: Record<string, string[]>; fluidTags: Record<string, string[]>; itemIcons: Record<string, string>; itemAnimations: Record<string, TextureAnimation>; itemModelIds: Record<string, string>; itemModels: Record<string, MachineModel>; machineModelIds: Record<string, string>; machineModels: Record<string, MachineModel>; machineLayoutRules: MachineLayoutRules };
 
@@ -67,7 +68,7 @@ export function resourcesMatch(a: Pick<Ingredient, "type" | "id" | "alternatives
   if (a.type !== b.type) return false;
   const values = (resource: typeof a) => {
     const tags = resource.type === "fluid" ? fluidTags : itemTags;
-    return new Set([resource.id, ...(resource.alternatives ?? []), ...(resource.id.startsWith("#") ? tags[resource.id.slice(1)] ?? [] : [])]);
+    return new Set([resource.id, ...(resource.alternatives ?? []), ...(resource.id.startsWith("#") ? tagMembers(tags, resource.id.slice(1)) ?? [] : [])]);
   };
   const left = values(a);
   return [...values(b)].some((value) => left.has(value));
@@ -96,7 +97,7 @@ export function collectRecipeItems(recipes: Recipe[], itemTags: Record<string, s
 export function canonicalizePlantResources(plant: Plant, itemTags: Record<string, string[]>, fluidTags: Record<string, string[]>): Plant {
   const canonical = (resource: Resource): Resource => {
     if (!resource.id.startsWith("#")) return resource;
-    const members = (resource.type === "fluid" ? fluidTags : itemTags)[resource.id.slice(1)];
+    const members = tagMembers(resource.type === "fluid" ? fluidTags : itemTags, resource.id.slice(1));
     return members?.length === 1 ? { ...resource, id: members[0], alternatives: members }
       : members?.length ? { ...resource, alternatives: members } : resource;
   };

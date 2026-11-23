@@ -26,6 +26,13 @@ const tagIngredient = { type: "item" as const, id: "#ingredient", alternatives: 
 assert.equal(ingredientConnectionAccepts([tagIngredient], tagIngredient, tagSource.resource), true);
 assert.equal(ingredientConnectionAccepts([tagIngredient], tagIngredient, { type: "item", id: "#other", alternatives: ["silver"] }), false);
 assert.deepEqual(canonicalizePlantResources(tagPlant, {}, {}).components, tagPlant.components);
+for (const id of ["constructor", "toString", "__proto__"]) {
+  const resource = { type: "item" as const, id: `#${id}` };
+  const plant = { id: "unknown", components: [{ id: "s", kind: "supply" as const, resource }], connections: [], constraints: [] };
+  assert.deepEqual(canonicalizePlantResources(plant, {}, {}).components, plant.components);
+  assert.equal(resourcesMatch(resource, { type: "item", id: "iron" }, {}, {}), false);
+  assert.equal(resourcesMatch(resource, resource, {}, {}), true);
+}
 
 const inlineYaml = `format: "CreateRate plant"
 version: 1
