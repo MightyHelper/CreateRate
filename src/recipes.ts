@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
+import { resourceKey } from "./plant.ts";
 import { choiceDisplayId, choiceTagId, listChoiceTags } from "./recipe-choices.ts";
 import { tagMembers } from "./resource-tags.ts";
+
+export { resourceKey } from "./plant.ts";
 
 export type Ingredient = {
   type: "item" | "fluid";
@@ -182,10 +185,6 @@ export function listUnresolvedRecipes(): UnresolvedRecipe[] {
 
 export function recipeSetVersion(): string {
   return `Minecraft ${exported.minecraftVersion ?? "unknown"}, Create ${exported.createVersion ?? "unknown"}`;
-}
-
-export function resourceKey(resource: Pick<Ingredient, "type" | "id">): string {
-  return `${resource.type}:${resource.id}`;
 }
 
 function normalizeRecipe(id: string, raw: RawRecipe, source?: string, conditional = false): Recipe | undefined {
