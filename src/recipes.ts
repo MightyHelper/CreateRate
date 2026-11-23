@@ -148,7 +148,9 @@ const recipes = [...recipesById.values()];
 export function findRecipesProducing(resource: string): Recipe[] {
   const type = resource.startsWith("fluid:") ? "fluid" : "item";
   const id = /^(?:item|fluid):/.test(resource) ? resource.slice(resource.indexOf(":") + 1) : resource;
-  return recipes.filter((recipe) => recipe.outputs.some((output) => output.resource.type === type && output.resource.id === id));
+  const key = `${type}:${id}`;
+  return recipes.filter((recipe) => recipe.outputs.some((output) =>
+    output.resource.type === type && (output.resource.id === id || resourceKey(output.resource) === key)));
 }
 
 export function findRecipe(id: string): Recipe | undefined {

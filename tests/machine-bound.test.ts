@@ -1,7 +1,8 @@
 #!/usr/bin/env -S node
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { addPlantRecipe, analyzePlantRates, capacityForRecipe, createPlant, feasibleTimingsForRecipe, getRecipe, parsePlantTransferYaml, plantTransferYaml, timingForRecipe } from "../src/core.ts";
+import { addPlantRecipe, analyzePlantRates, capacityForRecipe, createPlant, feasibleTimingsForRecipe, getRecipe, parsePlantTransferYaml, plantTransferYaml, recipesProducing, timingForRecipe } from "../src/core.ts";
+import { resourceKey } from "../src/plant.ts";
 import { plantProcessMetrics } from "../src/core/plant-analysis.ts";
 
 const plant = parsePlantTransferYaml(readFileSync(new URL("../tests/resources/machine-bound.yaml", import.meta.url), "utf8")).plant;
@@ -50,6 +51,9 @@ assert.ok(paint);
 assert.equal(paint.inputs.length, 2);
 assert.deepEqual(paint.inputs.map(({ nbt, amount }) => [nbt, amount]), [[{ Color: "yellow" }, 125], [{ Color: "green" }, 125]]);
 assert.deepEqual(paint.output.nbt, { Color: "chartreuse" });
+assert.ok(recipesProducing(resourceKey(paint.output)).some(({ id }) => id === paint.id));
+assert.ok(recipesProducing("fluid:railways:paint").length > recipesProducing(resourceKey(paint.output)).length);
+assert.ok(recipesProducing(resourceKey(paint.output)).every((recipe) => recipe.outputs.some(({ resource }) => resourceKey(resource) === resourceKey(paint.output))));
 const { ingredientAccepts, collectRecipeItems } = await import("../src/recipe-queries.ts");
 assert.equal(ingredientAccepts(paint.inputs[0], { type: "fluid", id: "railways:paint", nbt: { Color: "yellow", extra: 1 } }), true);
 assert.equal(ingredientAccepts(paint.inputs[0], paint.inputs[1]), false);
