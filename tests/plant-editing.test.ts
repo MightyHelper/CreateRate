@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { deletePlantFlow, deletePlantSelection } from "../src/core/plant-editing.ts";
+import { deletePlantFlow, deletePlantSelection, ensurePlantOutputDestinations } from "../src/core/plant-editing.ts";
 import type { Plant } from "../src/plant.ts";
 
 const resource = { type: "item" as const, id: "minecraft:iron_ingot" };
@@ -192,6 +192,13 @@ const restrictedGraph: Plant = { id: "restricted", components: [broadSource, { i
 const goldRecipe = { ...ironRecipe, id: "gold", output: gold, outputs: [{ resource: gold, amount: 1 }] };
 const canProduceForExistingFlows = (candidate: typeof resource) => matchDependencies.resourcesMatch(candidate, broadSource.resource) && restrictedGraph.connections.every((edge) => canAttachPlantResource(restrictedGraph, candidate, edge.to, matchDependencies.findRecipe));
 assert.equal(recipesForPlantBoundary([ironRecipe as never, goldRecipe as never], broadSource, matchDependencies.resourcesMatch, "produce", canProduceForExistingFlows).length, 1);
+
+const oldPaint = { type: "fluid" as const, id: "railways:paint" };
+const paintRecipe = { id: "paint", inputs: [{ ...oldPaint, nbt: { Color: "yellow" }, amount: 1 }, { ...oldPaint, nbt: { Color: "green" }, amount: 1 }], output: { ...oldPaint, nbt: { Color: "chartreuse" } }, outputAmount: 1 };
+const legacyPlant = { id: "legacy", components: [{ id: "p", kind: "process" as const, recipeId: "paint" }], connections: [{ id: "loop", from: { componentId: "p", direction: "output" as const, resource: oldPaint }, to: { componentId: "p", direction: "input" as const, resource: oldPaint } }], constraints: [{ id: "rate", kind: "bound" as const, relation: "equals" as const, value: 1, target: { kind: "connection-rate" as const, connectionId: "loop" } }] };
+const protectedLegacy = ensurePlantOutputDestinations(legacyPlant, { createId, findRecipe: () => paintRecipe as never });
+assert.deepEqual(protectedLegacy.plant, legacyPlant);
+assert.deepEqual(protectedLegacy.removedConnectionIds, []);
 assert.throws(() => expandPlantBoundary(restrictedGraph, broadSource.id, goldRecipe as never, matchDependencies), /does not match/);
 assert.ok(expandPlantBoundary(restrictedGraph, broadSource.id, ironRecipe as never, matchDependencies).plant.connections.some(({ id }) => id === "restricted-flow"));
 
@@ -268,7 +275,6 @@ assert.ok(poolRemoval.constraints.every((constraint) => constraint.target.kind =
 assert.ok(poolRemoval.constraints.some((constraint) => constraint.kind === "bound" && constraint.relation === "equals" && constraint.value === 5));
 assert.ok(poolRemoval.constraints.some((constraint) => constraint.kind === "integer"));
 
-const { ensurePlantOutputDestinations } = await import("../src/core/plant-editing.ts");
 const loopRecipe = { id: "loop-recipe", inputs: [{ ...resource, amount: 1 }], output: gold, outputAmount: 1, outputs: [{ resource: gold, amount: 1 }] };
 const incompatibleLoop: Plant = { id: "loop-repair", components: [{ id: "p", kind: "process", recipeId: "loop-recipe" }], connections: [{ id: "bad-loop", from: { componentId: "p", direction: "output", resource: gold }, to: { componentId: "p", direction: "input", resource } }], constraints: [{ id: "loop-rate", kind: "bound", relation: "equals", value: 1, target: { kind: "connection-rate", connectionId: "bad-loop" } }] };
 const repaired = ensurePlantOutputDestinations(incompatibleLoop, { createId, findRecipe: () => loopRecipe as never });

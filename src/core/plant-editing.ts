@@ -506,12 +506,26 @@ export function removeDisconnectedPlantBoundaries(plant: Plant, before?: Plant) 
 }
 
 export function ensurePlantOutputDestinations(plant: Plant, dependencies: PlantEditDependencies) {
+  const legacyProcesses = new Set<string>();
+  const inspectLegacyPort = (port: PortRef) => {
+    if (port.resource.type !== "fluid" || port.resource.nbt !== undefined) return;
+    const component = plant.components.find(({ id }) => id === port.componentId);
+    if (component?.kind !== "process") return;
+    const recipe = dependencies.findRecipe(component.recipeId);
+    if (!recipe) return;
+    const resources = port.direction === "input" ? recipe.inputs : recipeOutputs(recipe).map(({ resource }) => resource);
+    if (resources.some((resource) => resourceKey(resource) === resourceKey(port.resource))) return;
+    if (resources.some((resource) => resource.type === port.resource.type && resource.id === port.resource.id && resource.nbt !== undefined)) legacyProcesses.add(component.id);
+  };
+  for (const edge of plant.connections) { inspectLegacyPort(edge.from); inspectLegacyPort(edge.to); }
+  for (const constraint of plant.constraints) if (constraint.target.kind === "port-rate") inspectLegacyPort(constraint.target.port);
   const selfConnections = plant.connections.filter((edge) =>
-    edge.from.componentId === edge.to.componentId && !isValidSelfConnection(edge, plant, dependencies));
+    edge.from.componentId === edge.to.componentId && !legacyProcesses.has(edge.from.componentId) && !isValidSelfConnection(edge, plant, dependencies));
   let next = plant;
   for (const edge of selfConnections) next = disconnectPlantPorts(next, edge.id);
   const createdComponents: PlantComponent[] = [];
   for (const process of next.components.filter((component): component is Extract<PlantComponent, { kind: "process" }> => component.kind === "process")) {
+    if (legacyProcesses.has(process.id)) continue;
     const recipe = dependencies.findRecipe(process.recipeId);
     const outputs = recipeOutputs(recipe);
     for (const output of outputs) {
