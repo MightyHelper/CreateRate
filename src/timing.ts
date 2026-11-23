@@ -2,6 +2,7 @@ import { InvalidOperatingCondition } from "./core/timing-errors.ts";
 import timingData from "../data/timing.json";
 import stressData from "../data/stress.json";
 import type { Recipe } from "./recipes.ts";
+import { primaryOutputAmount } from "./recipe-queries.ts";
 
 type MixerRules = {
   minimumRpm: number;
@@ -165,7 +166,7 @@ export function calculateTiming(recipe: Recipe, rpm: number, stackSize = 1): Ope
   if (randomTickProcess) {
     const ticksPerSuccess = rules.randomTick.blocksPerSection /
       rules.randomTick.attemptsPerSectionPerTick / randomTickProcess.successChancePerRandomTick;
-    return fixedCycleTiming(ticksPerSuccess * (randomTickProcess.successfulTicksPerOutput ?? 1), recipe.outputAmount, 1);
+    return fixedCycleTiming(ticksPerSuccess * (randomTickProcess.successfulTicksPerOutput ?? 1), primaryOutputAmount(recipe), 1);
   }
   if (recipe.machine === "encased_fan") return fanTiming(recipe, stackSize);
   if (recipe.machine === "crushing_wheels") return crushingWheelTiming(recipe, rpm, stackSize);
@@ -186,7 +187,7 @@ export function calculateTiming(recipe: Recipe, rpm: number, stackSize = 1): Ope
       cycleSeconds: cycleTicks / rules.ticksPerSecond,
       batchesPerMinute,
       runsPerCycle: machineSlots,
-      outputPerMinute: batchesPerMinute * recipe.outputAmount * machineSlots,
+      outputPerMinute: batchesPerMinute * primaryOutputAmount(recipe) * machineSlots,
     };
   }
   if (recipe.machine !== "mechanical_mixer" && recipe.machine !== "mechanical_press") {
@@ -204,7 +205,7 @@ export function calculateTiming(recipe: Recipe, rpm: number, stackSize = 1): Ope
     cycleSeconds: timing.cycleTicks / rules.ticksPerSecond,
     batchesPerMinute,
     runsPerCycle: 1,
-    outputPerMinute: batchesPerMinute * recipe.outputAmount,
+    outputPerMinute: batchesPerMinute * primaryOutputAmount(recipe),
   };
 }
 
@@ -321,7 +322,7 @@ function fanTiming(recipe: Recipe, stackSize: number): OperationTiming {
     cycleSeconds: cycleTicks / rules.ticksPerSecond,
     batchesPerMinute,
     runsPerCycle,
-    outputPerMinute: batchesPerMinute * runsPerCycle * recipe.outputAmount,
+    outputPerMinute: batchesPerMinute * runsPerCycle * primaryOutputAmount(recipe),
   };
 }
 
@@ -350,7 +351,7 @@ function crushingWheelTiming(recipe: Recipe, rpm: number, stackSize: number): Op
     if (remaining < config.recipeApplyThresholdTicks && !appliedRecipe) appliedRecipe = true;
   }
 
-  return fixedCycleTiming(cycleTicks, recipe.outputAmount, runsPerCycle);
+  return fixedCycleTiming(cycleTicks, primaryOutputAmount(recipe), runsPerCycle);
 }
 
 function millstoneTiming(recipe: Recipe, rpm: number): OperationTiming {
@@ -367,7 +368,7 @@ function millstoneTiming(recipe: Recipe, rpm: number): OperationTiming {
   );
   const processingTicks = Math.ceil(recipe.durationTicks / processingSpeed);
   const cycleTicks = processingTicks + config.recipeRestartTicks;
-  return fixedCycleTiming(cycleTicks, recipe.outputAmount, 1);
+  return fixedCycleTiming(cycleTicks, primaryOutputAmount(recipe), 1);
 }
 
 function sawTiming(recipe: Recipe, rpm: number, stackSize: number): OperationTiming {
@@ -396,7 +397,7 @@ function sawTiming(recipe: Recipe, rpm: number, stackSize: number): OperationTim
     }
   }
 
-  return fixedCycleTiming(cycleTicks, recipe.outputAmount, runsPerCycle);
+  return fixedCycleTiming(cycleTicks, primaryOutputAmount(recipe), runsPerCycle);
 }
 
 function mechanicalDrillTiming(recipe: Recipe, rpm: number): OperationTiming {
@@ -410,7 +411,7 @@ function mechanicalDrillTiming(recipe: Recipe, rpm: number): OperationTiming {
   const progressPerTick = Math.max(1, Math.min(config.maximumProgressPerTick, Math.trunc(breakSpeed / hardness)));
   const progressTicks = Math.ceil(config.progressPerBlock / progressPerTick);
   const ticksPerProgress = Math.floor(hardness / breakSpeed) + 1;
-  return fixedCycleTiming(progressTicks * ticksPerProgress, recipe.outputAmount, 1);
+  return fixedCycleTiming(progressTicks * ticksPerProgress, primaryOutputAmount(recipe), 1);
 }
 
 function itemRunsPerCycle(recipe: Recipe, stackSize: number, machine: string): number {

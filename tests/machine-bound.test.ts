@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { addPlantRecipe, analyzePlantRates, createPlant, getRecipe, parsePlantTransferYaml } from "../src/core.ts";
+import { addPlantRecipe, analyzePlantRates, capacityForRecipe, createPlant, feasibleTimingsForRecipe, getRecipe, parsePlantTransferYaml, timingForRecipe } from "../src/core.ts";
 import { plantProcessMetrics } from "../src/core/plant-analysis.ts";
 
 const plant = parsePlantTransferYaml(readFileSync(new URL("../tests/resources/machine-bound.yaml", import.meta.url), "utf8")).plant;
@@ -24,11 +24,26 @@ assert.ok(added.plant.constraints.some((constraint) => constraint.target.kind ==
 const { calculateTiming } = await import("../src/timing.ts");
 const duplicateOutcomeRecipe = { ...recipe, outputs: [
   { resource: recipe.output, amount: 1 }, { resource: recipe.output, amount: 1 },
+  { resource: { type: "item" as const, id: "example:byproduct" }, amount: 20 },
 ], outputAmount: 1 };
 const perMachine = calculateTiming(duplicateOutcomeRecipe, 256).batchesPerMinute * calculateTiming(duplicateOutcomeRecipe, 256).runsPerCycle * 2;
+assert.equal(calculateTiming(duplicateOutcomeRecipe, 256).outputPerMinute, perMachine);
 const outputAnalysis = { status: "balanced" as const, issues: [], connectionRates: [], portRates: [{ port: { componentId: process.id, direction: "output" as const, resource: recipe.output }, rate: { state: "derived" as const, perMinute: perMachine * 2 } }] };
 const unconstrained = { ...plant, constraints: [{ id: "rpm", kind: "bound" as const, relation: "equals" as const, value: 256, target: { kind: "rpm" as const, componentId: process.id } }] };
 assert.equal(plantProcessMetrics(unconstrained, process.id, duplicateOutcomeRecipe, outputAnalysis).machineCount, 2);
+
+const crushingId = "create:crushing/amethyst_block";
+const crushing = getRecipe(crushingId);
+assert.ok(crushing);
+const crushingTiming = timingForRecipe(crushingId, 64, 1);
+assert.equal(crushingTiming.outputPerMinute, 525);
+const capacity = capacityForRecipe(crushingId, 64, { "item:minecraft:amethyst_block": 150 }, 525, 1);
+assert.equal(capacity.inputLimitedOutputPerMinute, 525);
+assert.equal(capacity.machinesForTarget, 1);
+assert.equal(capacity.targetInputRates["item:minecraft:amethyst_block"], 150);
+const feasible = feasibleTimingsForRecipe(crushingId, { rpm: 64, stackSize: 1, targetOutputPerMinute: 500 });
+assert.equal(feasible.status, "determined");
+assert.equal(feasible.operatingPoints[0].capacityPerMachine, 525);
 
 const mixer = { ...recipe, machine: "mechanical_mixer" };
 const operatingPlant = { id: "operating", components: [{ id: "mixer", kind: "process" as const, recipeId: mixer.id }], connections: [], constraints: [{ id: "rpm", kind: "bound" as const, relation: "equals" as const, value: 1, target: { kind: "rpm" as const, componentId: "mixer" } }] };

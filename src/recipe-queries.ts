@@ -47,6 +47,10 @@ export function recipeOutputPorts(recipe?: Recipe): Array<{ resource: RecipeOutp
   return [...outputs.values()];
 }
 
+export function primaryOutputAmount(recipe: Recipe): number {
+  return recipeOutputPorts(recipe).find(({ resource }) => resourceKey(resource) === resourceKey(recipe.output))?.amount ?? recipe.outputAmount;
+}
+
 export function ingredientAccepts(input: Pick<Ingredient, "type" | "id" | "alternatives">, resource: Resource): boolean {
   return resourcesMatch(input, resource, {}, {});
 }

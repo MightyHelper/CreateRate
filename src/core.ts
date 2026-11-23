@@ -6,7 +6,7 @@ import {
   recipeSetVersion,
 } from "./recipes.ts";
 import type { Ingredient, Recipe } from "./recipes.ts";
-import { canonicalizePlantResources } from "./recipe-queries.ts";
+import { canonicalizePlantResources, primaryOutputAmount } from "./recipe-queries.ts";
 import {
   addPlantComponent,
   addPlantConstraint,
@@ -144,7 +144,7 @@ export function capacityForRecipe(
   const inputLimitedBatchesPerMinute = Math.min(
     ...recipe.inputs.map((input) => inputRate(input, inputRates)! / (input.amount * runsPerCycle)),
   );
-  const outputPerCycle = recipe.outputAmount * runsPerCycle;
+  const outputPerCycle = primaryOutputAmount(recipe) * runsPerCycle;
   const inputLimitedOutputPerMinute = inputLimitedBatchesPerMinute * outputPerCycle;
   const machinesForTarget = Math.ceil(targetOutputPerMinute / timing.outputPerMinute);
   const targetBatchesPerMinute = targetOutputPerMinute / outputPerCycle;
