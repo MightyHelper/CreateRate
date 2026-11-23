@@ -298,6 +298,18 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     if (rpmPowerOfTwo && countIsPowerOfTwo && exactProduct !== undefined && !isPowerOfTwo(exactProduct)) {
       addIssue(issues, `${component.id} stress and power-of-two operating constraints disagree`);
     }
+    if (rpmInteger && countIsPowerOfTwo && exactProduct !== undefined && Number.isSafeInteger(exactProduct) && exactProduct > 0) {
+      let feasible = false;
+      const maximumCount = Math.min(maximumMachines ?? exactProduct, exactProduct);
+      for (let count = minimumMachines; count <= maximumCount; count *= 2) {
+        const candidateRpm = exactProduct / count;
+        if (Number.isInteger(candidateRpm) && candidateRpm >= minimumRpm &&
+            (maximumRpm === undefined || candidateRpm <= maximumRpm) && (!rpmPowerOfTwo || isPowerOfTwo(candidateRpm))) {
+          feasible = true; break;
+        }
+      }
+      if (!feasible) addIssue(issues, `${component.id} stress and discrete operating bounds disagree`);
+    }
     if (conditions.includes("rpm") && rpm === undefined) continue;
     let machineCount = upperBoundFor(plant, { kind: "machine-count", componentId: component.id });
     const countPowerOfTwo = plant.constraints.some((constraint) => constraint.kind === "power-of-two" &&

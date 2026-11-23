@@ -108,3 +108,5 @@ assert.notEqual(analyzeWithRecipes(discreteProduct(256), new Map([[mixer.id, mix
 const integerProduct = (stress: number) => ({ ...discreteProduct(stress), constraints: discreteProduct(stress).constraints.map((constraint) => constraint.id === "rpm-power" ? { ...constraint, kind: "integer" as const } : constraint) });
 assert.equal(analyzeWithRecipes(integerProduct(130), new Map([[mixer.id, mixer]])).status, "conflicting");
 assert.notEqual(analyzeWithRecipes(integerProduct(128), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.equal(analyzeWithRecipes(integerProduct(404), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(integerProduct(400), new Map([[mixer.id, mixer]])).status, "conflicting");
