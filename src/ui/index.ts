@@ -571,6 +571,7 @@ function pointerDown(event: PointerEvent) {
   const portElement = (event.target as Element).closest<SVGElement>("[data-port]");
   const portComponent = portElement && plant.components.find(({ id }) => id === portElement.dataset.component);
   if (portElement && event.pointerType !== "mouse" && (portComponent?.kind !== "pool" || pendingPort)) {
+    svg.setPointerCapture(event.pointerId);
     gestureFramework.dispatch(portComponent?.kind === "pool" ? "pool.connect" : "port.connect", { port: portFromElement(portElement), touch: true }); return;
   }
   if (portElement && event.ctrlKey) {
