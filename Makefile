@@ -38,6 +38,8 @@ test:
 	node build/plant-transfer.test.mjs
 	$(ESBUILD) tests/resource-picker.test.ts --bundle --platform=node --format=esm --outfile=build/resource-picker.test.mjs
 	node build/resource-picker.test.mjs
+	$(ESBUILD) tests/canvas-selection.test.ts --bundle --platform=node --format=esm --outfile=build/canvas-selection.test.mjs
+	node build/canvas-selection.test.mjs
 
 pages: build
 	mkdir -p build/site/src build/site/build build/site/data

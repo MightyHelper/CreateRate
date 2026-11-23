@@ -1,0 +1,15 @@
+import { strict as assert } from "node:assert";
+import { renderCanvas } from "../src/ui/canvas.ts";
+import type { CanvasState } from "../src/ui/canvas.ts";
+const resource = { type: "item" as const, id: "iron" };
+const node = () => ({ innerHTML: "", setAttribute() {}, hidden: false });
+const world = node(), preview = node(), grid = node(), hint = node();
+(globalThis as any).document = { querySelector: (selector: string) => selector === "#grid" ? grid : hint };
+const state = { plant: { id: "plant", components: [{ id: "same", kind: "supply", resource }, { id: "sink", kind: "demand", resource }], connections: [{ id: "same", from: { componentId: "same", direction: "output", resource }, to: { componentId: "sink", direction: "input", resource } }], constraints: [] }, world, interactionPreview: preview, positions: {}, view: { x: 0, y: 0, scale: 1 }, selected: "same", selectedIds: new Set<string>(), recipesById: new Map(), itemIcons: {}, itemModelIds: {}, itemModels: {}, itemAnimations: {}, portOrder: {}, rateDisplayUnits: { amount: "items", period: "minute" } } as unknown as CanvasState;
+renderCanvas(state);
+assert.match(world.innerHTML, /class="edge-group selected"/);
+assert.doesNotMatch(world.innerHTML, /class="resource selected"/);
+state.selectedIds.add("same");
+renderCanvas(state);
+assert.match(world.innerHTML, /class="resource selected"/);
+assert.doesNotMatch(world.innerHTML, /class="edge-group selected"/);

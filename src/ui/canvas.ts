@@ -63,7 +63,7 @@ export function renderCanvas(state: CanvasState) {
     const edgeRate = rateForConnection(state.rateAnalysis, edge.id);
     const labelX = (a.x + b.x) / 2, labelY = laneY === undefined ? (a.y + b.y) / 2 - 8 : laneY - 8;
     const iconMarkup = resourceIconMarkup(edge.from.resource, state, "edge-icon", labelX - 12, labelY - 22, 24);
-    markup.push(`<g class="edge-group ${selected === edge.id ? "selected" : ""}" tabindex="0" data-edge="${esc(edge.id)}"><path class="edge ${edge.secondary ? "secondary" : ""}" d="${path}"/><path class="edge-hit" d="${path}"/>${iconMarkup}<text class="edge-label ${rateClass(edgeRate)}" data-base-x="${labelX}" data-base-y="${labelY}" x="${labelX}" y="${labelY}" text-anchor="middle">${esc(short(edge.from.resource.id))} · ${esc(rateText(edgeRate, edge.from.resource, state.rateDisplayUnits))}</text></g>`);
+    markup.push(`<g class="edge-group ${selectedIds.size === 0 && selected === edge.id ? "selected" : ""}" tabindex="0" data-edge="${esc(edge.id)}"><path class="edge ${edge.secondary ? "secondary" : ""}" d="${path}"/><path class="edge-hit" d="${path}"/>${iconMarkup}<text class="edge-label ${rateClass(edgeRate)}" data-base-x="${labelX}" data-base-y="${labelY}" x="${labelX}" y="${labelY}" text-anchor="middle">${esc(short(edge.from.resource.id))} · ${esc(rateText(edgeRate, edge.from.resource, state.rateDisplayUnits))}</text></g>`);
   }
   for (const component of plant.components) {
     const p = positions[component.id] ?? (positions[component.id] = { x: 0, y: 0 });
@@ -72,7 +72,7 @@ export function renderCanvas(state: CanvasState) {
       const rate = rateForPort(state.rateAnalysis, target);
       const iconMarkup = resourceIconMarkup(component.resource, state, "pool-image", 8, 8, 36)
         || `<text class="pool-fallback" x="26" y="31">${esc(icon(component.resource.id))}</text>`;
-      markup.push(`<g class="pool ${selectedIds.has(component.id) || selected === component.id ? "selected" : ""}" data-component="${esc(component.id)}" transform="translate(${p.x} ${p.y})"><circle class="pool-body ${state.pendingPort?.componentId === component.id ? "link-active" : ""}" cx="26" cy="26" r="26"/><circle class="pool-port-hit" data-port="output" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(component.resource))}" cx="26" cy="26" r="25"/>${iconMarkup}<text class="pool-name" x="26" y="64">${esc(short(component.resource.id))}</text><rect class="rate-hit" data-constraint-target="${esc(JSON.stringify(target))}" x="-8" y="67" width="68" height="22" rx="5"/><text class="pool-rate ${rateClass(rate)}" data-constraint-target="${esc(JSON.stringify(target))}" x="26" y="83" text-anchor="middle">${esc(rateText(rate, component.resource, state.rateDisplayUnits))}</text></g>`);
+      markup.push(`<g class="pool ${selectedIds.has(component.id) ? "selected" : ""}" data-component="${esc(component.id)}" transform="translate(${p.x} ${p.y})"><circle class="pool-body ${state.pendingPort?.componentId === component.id ? "link-active" : ""}" cx="26" cy="26" r="26"/><circle class="pool-port-hit" data-port="output" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(component.resource))}" cx="26" cy="26" r="25"/>${iconMarkup}<text class="pool-name" x="26" y="64">${esc(short(component.resource.id))}</text><rect class="rate-hit" data-constraint-target="${esc(JSON.stringify(target))}" x="-8" y="67" width="68" height="22" rx="5"/><text class="pool-rate ${rateClass(rate)}" data-constraint-target="${esc(JSON.stringify(target))}" x="26" y="83" text-anchor="middle">${esc(rateText(rate, component.resource, state.rateDisplayUnits))}</text></g>`);
       continue;
     }
     if (component.kind !== "process") {
@@ -82,7 +82,7 @@ export function renderCanvas(state: CanvasState) {
       const portX = component.kind === "supply" ? 70 : 0;
       const iconMarkup = resourceIconMarkup(component.resource, state, "resource-image", 7, 3, 56)
         || `<text class="resource-icon" x="35" y="29">${esc(icon(component.resource.id))}</text>`;
-      markup.push(`<g class="resource ${selectedIds.has(component.id) || selected === component.id ? "selected" : ""}" data-component="${esc(component.id)}" transform="translate(${p.x} ${p.y})"><rect class="resource-body" width="70" height="70" rx="10"/>${iconMarkup}<text class="resource-name" x="35" y="67">${esc(short(component.resource.id))}</text><circle class="port-hit" data-port="${direction}" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(component.resource))}" cx="${portX}" cy="35" r="14"/><circle class="port-dot boundary-port ${isPendingPortTarget(state, component.id, direction, component.resource) ? "link-active" : ""}" cx="${portX}" cy="35" r="5"/><rect class="rate-hit" data-constraint-target="${esc(JSON.stringify(target))}" x="12" y="72" width="46" height="24" rx="5"/><text class="resource-rate ${rateClass(rate)}" data-constraint-target="${esc(JSON.stringify(target))}" x="35" y="89">${esc(rateText(rate, component.resource, state.rateDisplayUnits))}</text></g>`);
+      markup.push(`<g class="resource ${selectedIds.has(component.id) ? "selected" : ""}" data-component="${esc(component.id)}" transform="translate(${p.x} ${p.y})"><rect class="resource-body" width="70" height="70" rx="10"/>${iconMarkup}<text class="resource-name" x="35" y="67">${esc(short(component.resource.id))}</text><circle class="port-hit" data-port="${direction}" data-component="${esc(component.id)}" data-resource="${esc(resourceKey(component.resource))}" cx="${portX}" cy="35" r="14"/><circle class="port-dot boundary-port ${isPendingPortTarget(state, component.id, direction, component.resource) ? "link-active" : ""}" cx="${portX}" cy="35" r="5"/><rect class="rate-hit" data-constraint-target="${esc(JSON.stringify(target))}" x="12" y="72" width="46" height="24" rx="5"/><text class="resource-rate ${rateClass(rate)}" data-constraint-target="${esc(JSON.stringify(target))}" x="35" y="89">${esc(rateText(rate, component.resource, state.rateDisplayUnits))}</text></g>`);
       continue;
     }
     markup.push(processNodeMarkup(component, state));
@@ -112,10 +112,10 @@ export function renderCanvasMovement(state: CanvasState, movedIds: string[]) {
     if (element && position) element.setAttribute("transform", `translate(${position.x} ${position.y})`);
   }
   for (const element of state.world.querySelectorAll<SVGGElement>("g[data-component]")) {
-    element.classList.toggle("selected", state.selected === element.dataset.component || state.selectedIds.has(element.dataset.component ?? ""));
+    element.classList.toggle("selected", state.selectedIds.has(element.dataset.component ?? ""));
   }
   for (const element of state.world.querySelectorAll<SVGGElement>(".edge-group")) {
-    element.classList.toggle("selected", state.selected === element.dataset.edge);
+    element.classList.toggle("selected", state.selectedIds.size === 0 && state.selected === element.dataset.edge);
   }
 
   const lanes = connectionLanes(state);
@@ -201,7 +201,7 @@ function processNodeMarkup(component: Extract<PlantComponent, { kind: "process" 
   ].join(" · ");
   const machineLayout = layout ? machineLayoutMarkup(layout, state, 250, 1) : "";
   const titleMarkup = geometry.titleLines.map((line, index) => `<tspan x="12" y="${21 + index * 14}">${esc(line)}</tspan>`).join("");
-  const markup = [`<g class="process ${selectedIds.has(component.id) || selected === component.id ? "selected" : ""}" data-component="${esc(component.id)}" transform="translate(${positions[component.id]?.x ?? 0} ${positions[component.id]?.y ?? 0})"><rect class="process-body" width="320" height="${height}" rx="11"/>${machineLayout}<text class="process-title">${titleMarkup}</text><text class="process-machine" x="12" y="${39 + shift}">${esc(recipe?.machine ?? recipe?.method ?? "process")} · <tspan class="${rateClass(primaryRate)}">${esc(productionRate)}</tspan></text><text class="process-meta" x="12" y="${53 + shift}">${primaryMeta}</text>${secondaryMeta ? `<text class="process-meta" x="12" y="${67 + shift}">${secondaryMeta}</text>` : ""}<text class="port-heading" x="12" y="${82 + shift}">INPUTS</text><text class="port-heading" x="308" y="${82 + shift}" text-anchor="end">OUTPUTS</text>`];
+  const markup = [`<g class="process ${selectedIds.has(component.id) ? "selected" : ""}" data-component="${esc(component.id)}" transform="translate(${positions[component.id]?.x ?? 0} ${positions[component.id]?.y ?? 0})"><rect class="process-body" width="320" height="${height}" rx="11"/>${machineLayout}<text class="process-title">${titleMarkup}</text><text class="process-machine" x="12" y="${39 + shift}">${esc(recipe?.machine ?? recipe?.method ?? "process")} · <tspan class="${rateClass(primaryRate)}">${esc(productionRate)}</tspan></text><text class="process-meta" x="12" y="${53 + shift}">${primaryMeta}</text>${secondaryMeta ? `<text class="process-meta" x="12" y="${67 + shift}">${secondaryMeta}</text>` : ""}<text class="port-heading" x="12" y="${82 + shift}">INPUTS</text><text class="port-heading" x="308" y="${82 + shift}" text-anchor="end">OUTPUTS</text>`];
   ins.forEach((input, index) => {
     const target: PlantQuantityRef = { kind: "port-rate", port: { componentId: component.id, direction: "input", resource: input } };
     const rate = rateForPort(state.rateAnalysis, target), targetData = esc(JSON.stringify(target));

@@ -353,8 +353,8 @@ function render(reanalyze = true) {
 
 function renderSelectionUi() {
   const components = new Map(plant.components.map((component) => [component.id, component]));
-  const picked = components.get(selected);
-  const pickedConnection = plant.connections.find(({ id }) => id === selected);
+  const picked = selectedIds.has(selected) ? components.get(selected) : undefined;
+  const pickedConnection = selectedIds.size === 0 ? plant.connections.find(({ id }) => id === selected) : undefined;
   const info = $("#selection-info");
   info.hidden = !picked && !pickedConnection && selectedIds.size === 0;
   $("#delete-selected").hidden = !picked && !pickedConnection && selectedIds.size === 0;
@@ -381,7 +381,7 @@ function selectConstraintOwner(target: PlantQuantityRef) {
     element.classList.toggle("selected", selectedIds.has(element.dataset.component ?? ""));
   }
   for (const element of world.querySelectorAll<SVGGElement>(".edge-group")) {
-    element.classList.toggle("selected", element.dataset.edge === selected);
+    element.classList.toggle("selected", selectedIds.size === 0 && element.dataset.edge === selected);
   }
   renderSelectionUi();
 }
@@ -975,8 +975,8 @@ function updateGestureHelp(target?: Element | null, modality?: GestureModality) 
   if (document.querySelector("dialog[open]")) helpPath = ["modal"];
   else if (target && !target.closest("#gesture-help")) helpPath = resolveGestureContext(target);
   const components = new Map(plant.components.map((component) => [component.id, component]));
-  const selectedConnection = plant.connections.find(({ id }) => id === selected);
-  const selectedComponent = components.get(selected);
+  const selectedConnection = selectedIds.size === 0 ? plant.connections.find(({ id }) => id === selected) : undefined;
+  const selectedComponent = selectedIds.has(selected) ? components.get(selected) : undefined;
   const hoveredComponentId = target?.closest<SVGElement>("[data-component]")?.dataset.component;
   const hoveredComponent = hoveredComponentId ? components.get(hoveredComponentId) : undefined;
   const hoveredPort = target?.closest<SVGElement>("[data-port]");
