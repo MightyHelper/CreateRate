@@ -110,3 +110,10 @@ assert.equal(analyzeWithRecipes(integerProduct(130), new Map([[mixer.id, mixer]]
 assert.notEqual(analyzeWithRecipes(integerProduct(128), new Map([[mixer.id, mixer]])).status, "conflicting");
 assert.equal(analyzeWithRecipes(integerProduct(404), new Map([[mixer.id, mixer]])).status, "conflicting");
 assert.notEqual(analyzeWithRecipes(integerProduct(400), new Map([[mixer.id, mixer]])).status, "conflicting");
+const stressInterval = (maximum: number) => ({ ...discreteProduct(192), constraints: [
+  ...discreteProduct(192).constraints.filter(({ id }) => id !== "stress"),
+  { id: "stress-min", kind: "bound" as const, relation: "at-least" as const, value: 193, target: { kind: "stress" as const, componentId: "mixer" } },
+  { id: "stress-max", kind: "bound" as const, relation: "at-most" as const, value: maximum, target: { kind: "stress" as const, componentId: "mixer" } },
+] });
+assert.equal(analyzeWithRecipes(stressInterval(255), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(stressInterval(256), new Map([[mixer.id, mixer]])).status, "conflicting");

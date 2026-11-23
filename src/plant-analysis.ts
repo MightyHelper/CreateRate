@@ -291,6 +291,14 @@ function analyzePlantRatesPass(plant: Plant, dependencies: PlantAnalyzerDependen
     const countIsPowerOfTwo = plant.constraints.some((constraint) => constraint.kind === "power-of-two" && constraint.target.kind === "machine-count" && constraint.target.componentId === component.id);
     const exactJointStress = exactConstraintValue(plant, { kind: "stress", componentId: component.id });
     const stressPerRpm = stressImpactPerMachine(recipe);
+    if (rpmPowerOfTwo && countIsPowerOfTwo && maximumStress !== undefined && stressPerRpm > 0 && minimumStress > 0) {
+      const ratio = nearInteger(minimumStress / stressPerRpm);
+      const nextProduct = 2 ** Math.ceil(Math.log2(ratio));
+      const nextStress = stressPerRpm * nextProduct;
+      if (Number.isFinite(nextStress) && strictlyLess(maximumStress, nextStress)) {
+        addIssue(issues, `${component.id} stress range excludes all power-of-two operating products`);
+      }
+    }
     const exactProduct = exactJointStress === undefined || stressPerRpm <= 0 ? undefined : nearInteger(exactJointStress / stressPerRpm);
     if (rpmInteger && exactProduct !== undefined && !Number.isInteger(exactProduct)) {
       addIssue(issues, `${component.id} stress and integer operating constraints disagree`);
