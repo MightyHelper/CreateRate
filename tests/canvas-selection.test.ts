@@ -13,3 +13,19 @@ state.selectedIds.add("same");
 renderCanvas(state);
 assert.match(world.innerHTML, /class="resource selected"/);
 assert.doesNotMatch(world.innerHTML, /class="edge-group selected"/);
+
+const { resolveCanvasPort } = await import("../src/ui/canvas.ts");
+const { ingredientConnectionAccepts } = await import("../src/recipe-queries.ts");
+const ingredient = { type: "item" as const, id: "#ingots", alternatives: ["iron", "gold"], amount: 1 };
+const recipe = { id: "r", inputs: [ingredient], output: ingredient, outputAmount: 1, outputs: [{ resource: ingredient, amount: 1 }] };
+const graph = { id: "p", components: [{ id: "process", kind: "process" as const, recipeId: "r" }, { id: "pool", kind: "pool" as const, resource: ingredient }], connections: [], constraints: [] };
+const catalog = new Map([["r", recipe as never]]);
+for (const direction of ["input", "output"] as const) {
+  const port = resolveCanvasPort(graph, catalog, { component: "process", port: direction, resource: "item:#ingots" });
+  assert.deepEqual(port.resource.alternatives, ["iron", "gold"]);
+}
+const inputPort = resolveCanvasPort(graph, catalog, { component: "process", port: "input", resource: "item:#ingots" });
+assert.equal(ingredientConnectionAccepts(recipe.inputs, inputPort.resource, { type: "item", id: "iron" }), true);
+assert.equal(ingredientConnectionAccepts(recipe.inputs, inputPort.resource, { type: "item", id: "copper" }), false);
+assert.deepEqual(resolveCanvasPort(graph, catalog, { component: "pool", port: "output", resource: "item:#ingots" }).resource.alternatives, ["iron", "gold"]);
+assert.throws(() => resolveCanvasPort(graph, catalog, { component: "process", port: "input", resource: "item:missing" }), /Unknown canvas port/);

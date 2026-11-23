@@ -37,6 +37,18 @@ export type CanvasState = {
   reorderingPort?: PortRef;
 };
 
+export function resolveCanvasPort(plant: Plant, recipes: Map<string, Recipe>, data: { component?: string; port?: string; resource?: string }): PortRef {
+  const component = plant.components.find(({ id }) => id === data.component);
+  const direction = data.port;
+  if (!component || (direction !== "input" && direction !== "output")) throw new Error("Unknown canvas port");
+  const recipe = component.kind === "process" ? recipes.get(component.recipeId) : undefined;
+  const resources = component.kind !== "process" ? [component.resource]
+    : direction === "input" ? recipe?.inputs ?? [] : recipeOutputPorts(recipe).map(({ resource }) => resource);
+  const resource = resources.find((candidate) => resourceKey(candidate) === data.resource);
+  if (!resource) throw new Error("Unknown canvas port resource");
+  return { componentId: component.id, direction, resource };
+}
+
 export function processGeometry(title: string, rows: number) {
   const titleLines = wrapProcessTitle(title);
   const shift = (titleLines.length - 1) * 14;

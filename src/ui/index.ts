@@ -34,7 +34,7 @@ import type { Recipe } from "../recipes.ts";
 import type { PlantRateAnalysis } from "../plant-analysis.ts";
 import { createConstraintUi } from "./constraints.ts";
 import { createPickers } from "./pickers.ts";
-import { connectionLanes, orderedPorts, portPoint, processGeometry, renderCanvas, renderCanvasInteractionPreview, renderCanvasMovement, renderRecipePreview, renderResourceIcon, updateCanvasView, updateEdgeTooltip } from "./canvas.ts";
+import { connectionLanes, orderedPorts, portPoint, processGeometry, renderCanvas, renderCanvasInteractionPreview, renderCanvasMovement, renderRecipePreview, renderResourceIcon, resolveCanvasPort, updateCanvasView, updateEdgeTooltip } from "./canvas.ts";
 import type { CanvasState } from "./canvas.ts";
 import { getRateDisplayUnits } from "./rate-display.ts";
 import { rateDisplayUnit } from "../core/rate-units.ts";
@@ -854,12 +854,7 @@ function isOutsideViewport(event: PointerEvent): boolean {
 }
 
 function portFromElement(target: SVGElement): PortRef {
-  const [type, ...idParts] = target.dataset.resource!.split(":");
-  return {
-    componentId: target.dataset.component!,
-    direction: target.dataset.port as "input" | "output",
-    resource: { type, id: idParts.join(":") } as Resource,
-  };
+  return resolveCanvasPort(plant, recipesById, target.dataset);
 }
 
 function samePort(a: PortRef, b: PortRef): boolean {
