@@ -267,3 +267,14 @@ assert.equal(poolRemoval.constraints.length, 2);
 assert.ok(poolRemoval.constraints.every((constraint) => constraint.target.kind === "connection-rate" && constraint.target.connectionId === poolRemoval.connections[0].id));
 assert.ok(poolRemoval.constraints.some((constraint) => constraint.kind === "bound" && constraint.relation === "equals" && constraint.value === 5));
 assert.ok(poolRemoval.constraints.some((constraint) => constraint.kind === "integer"));
+
+const { ensurePlantOutputDestinations } = await import("../src/core/plant-editing.ts");
+const loopRecipe = { id: "loop-recipe", inputs: [{ ...resource, amount: 1 }], output: gold, outputAmount: 1, outputs: [{ resource: gold, amount: 1 }] };
+const incompatibleLoop: Plant = { id: "loop-repair", components: [{ id: "p", kind: "process", recipeId: "loop-recipe" }], connections: [{ id: "bad-loop", from: { componentId: "p", direction: "output", resource: gold }, to: { componentId: "p", direction: "input", resource } }], constraints: [{ id: "loop-rate", kind: "bound", relation: "equals", value: 1, target: { kind: "connection-rate", connectionId: "bad-loop" } }] };
+const repaired = ensurePlantOutputDestinations(incompatibleLoop, { createId, findRecipe: () => loopRecipe as never });
+assert.deepEqual(repaired.removedConnectionIds, ["bad-loop"]);
+assert.equal(repaired.createdComponents.filter((component) => component.kind === "demand").length, 1);
+assert.ok(!repaired.plant.constraints.some(({ id }) => id === "loop-rate"));
+const alternativeLoopRecipe = { ...loopRecipe, inputs: [{ type: "item" as const, id: "#metals", alternatives: [resource.id, gold.id], amount: 1 }] };
+const alternativeLoop: Plant = { ...incompatibleLoop, connections: [{ ...incompatibleLoop.connections[0], to: { componentId: "p", direction: "input", resource: alternativeLoopRecipe.inputs[0] } }] };
+assert.deepEqual(ensurePlantOutputDestinations(alternativeLoop, { createId, findRecipe: () => alternativeLoopRecipe as never }).removedConnectionIds, []);

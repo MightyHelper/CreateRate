@@ -1,4 +1,4 @@
-import { ingredientAccepts, ingredientConnectionAccepts, ingredientForPort, recipeOutputPorts, recipeOutputs } from "../recipe-queries.ts";
+import { ingredientConnectionAccepts, ingredientForPort, recipeOutputPorts, recipeOutputs } from "../recipe-queries.ts";
 import type { Recipe } from "../recipes.ts";
 import {
   addPlantComponent,
@@ -534,7 +534,7 @@ function isValidSelfConnection(edge: PlantConnection, plant: Plant, dependencies
   if (!recipe) return false;
   const outputs = recipeOutputs(recipe);
   return outputs.some(({ resource }) => resourceKey(resource) === resourceKey(edge.from.resource)) &&
-    recipe.inputs.some((input) => ingredientAccepts(input, edge.to.resource));
+    ingredientConnectionAccepts(recipe.inputs, edge.to.resource, edge.from.resource);
 }
 
 export function isLastPlantProcessOutputDestination(plant: Plant, componentId: string): boolean {
