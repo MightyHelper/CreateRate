@@ -15,6 +15,7 @@ function element(selector: string) {
 (globalThis as any).localStorage = { getItem: () => null, setItem() {} };
 const { createConstraintUi } = await import("../src/ui/constraints.ts");
 const { setRateDisplayUnits } = await import("../src/ui/rate-display.ts");
+setRateDisplayUnits({ amount: "items", period: "minute" });
 const resource = { type: "item" as const, id: "minecraft:iron_ingot" };
 const target: PlantQuantityRef = { kind: "port-rate", port: { componentId: "source", direction: "output", resource } };
 let plant: Plant = { id: "plant", components: [{ id: "source", kind: "supply", resource }], connections: [], constraints: [] };
