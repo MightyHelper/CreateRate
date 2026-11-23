@@ -133,10 +133,18 @@ export function createConstraintUi(dependencies: Dependencies) {
   function changeRateUnits() {
     const previous = getRateDisplayUnits();
     const next = normalizeRateDisplayUnits({ amount: $("#constraint-amount-unit").value, period: $("#constraint-period-unit").value });
-    if (editingResource) for (const selector of ["#constraint-equals", "#constraint-minimum", "#constraint-maximum"]) {
-      const value = readNumberInput(selector, editingResource, previous);
-      setNumberInput(selector, value, editingResource, next);
+    const selectors = ["#constraint-equals", "#constraint-minimum", "#constraint-maximum"];
+    try {
+      const values = editingResource ? selectors.map((selector) => readNumberInput(selector, editingResource, previous)) : [];
+      if (editingResource) selectors.forEach((selector, index) => setNumberInput(selector, values[index], editingResource, next));
+    } catch (error) {
+      amountSelect.value = previous.amount;
+      periodSelect.value = previous.period;
+      $("#constraint-error").textContent = error instanceof Error ? error.message : "Invalid constraint";
+      $("#constraint-error").hidden = false;
+      return;
     }
+    $("#constraint-error").hidden = true;
     setRateDisplayUnits(next);
     if (editingResource) {
       const unit = rateDisplayUnit(editingResource, next);

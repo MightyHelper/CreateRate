@@ -40,6 +40,8 @@ test:
 	node build/resource-picker.test.mjs
 	$(ESBUILD) tests/canvas-selection.test.ts --bundle --platform=node --format=esm --outfile=build/canvas-selection.test.mjs
 	node build/canvas-selection.test.mjs
+	$(ESBUILD) tests/constraint-units.test.ts --bundle --platform=node --format=esm --outfile=build/constraint-units.test.mjs
+	node build/constraint-units.test.mjs
 
 pages: build
 	mkdir -p build/site/src build/site/build build/site/data
