@@ -94,3 +94,17 @@ const discreteRpm = (stress: number, power: boolean) => ({ ...operatingPlant, co
 assert.equal(analyzeWithRecipes(discreteRpm(132, true), new Map([[mixer.id, mixer]])).status, "conflicting");
 assert.notEqual(analyzeWithRecipes(discreteRpm(256, true), new Map([[mixer.id, mixer]])).status, "conflicting");
 assert.notEqual(analyzeWithRecipes(discreteRpm(132, false), new Map([[mixer.id, mixer]])).status, "conflicting");
+
+const discreteProduct = (stress: number) => ({ ...operatingPlant, constraints: [
+  { id: "rpm-min", kind: "bound" as const, relation: "at-least" as const, value: 32, target: { kind: "rpm" as const, componentId: "mixer" } },
+  { id: "rpm-max", kind: "bound" as const, relation: "at-most" as const, value: 64, target: { kind: "rpm" as const, componentId: "mixer" } },
+  { id: "rpm-power", kind: "power-of-two" as const, target: { kind: "rpm" as const, componentId: "mixer" } },
+  { id: "count-max", kind: "bound" as const, relation: "at-most" as const, value: 2, target: { kind: "machine-count" as const, componentId: "mixer" } },
+  { id: "count-power", kind: "power-of-two" as const, target: { kind: "machine-count" as const, componentId: "mixer" } },
+  { id: "stress", kind: "bound" as const, relation: "equals" as const, value: stress, target: { kind: "stress" as const, componentId: "mixer" } },
+] });
+assert.equal(analyzeWithRecipes(discreteProduct(192), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(discreteProduct(256), new Map([[mixer.id, mixer]])).status, "conflicting");
+const integerProduct = (stress: number) => ({ ...discreteProduct(stress), constraints: discreteProduct(stress).constraints.map((constraint) => constraint.id === "rpm-power" ? { ...constraint, kind: "integer" as const } : constraint) });
+assert.equal(analyzeWithRecipes(integerProduct(130), new Map([[mixer.id, mixer]])).status, "conflicting");
+assert.notEqual(analyzeWithRecipes(integerProduct(128), new Map([[mixer.id, mixer]])).status, "conflicting");
